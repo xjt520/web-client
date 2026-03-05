@@ -120,6 +120,12 @@ export function GameTable({ room, getConnection }: GameTableProps) {
       // 更新当前用户手牌
       if (conn.identity && newHand.playerIdentity.toHexString() === conn.identity.toHexString()) {
         setMyHand(newHand)
+        // 清除不在新手牌中的选中牌，防止出牌时报错"您没有这张牌"
+        const newCardsSet = new Set(Array.from(newHand.cards))
+        const validSelections = Array.from(selectedCards).filter(card => newCardsSet.has(card))
+        if (validSelections.length !== selectedCards.size) {
+          setSelection(validSelections)
+        }
       }
     })
 
