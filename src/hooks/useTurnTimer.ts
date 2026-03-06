@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { Timestamp } from 'spacetimedb'
 
-const TURN_TIMEOUT_SECONDS = 25
+const TURN_TIMEOUT_SECONDS = 60
 
 /**
  * 将 SpacetimeDB Timestamp 转换为毫秒时间戳

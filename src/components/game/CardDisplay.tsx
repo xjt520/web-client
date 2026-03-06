@@ -1,4 +1,5 @@
 import { cardRank, cardSuit, isRedCard, getSuitSymbol } from '../../lib/gameUtils'
+import { useScreenOrientation } from '../../hooks/useScreenOrientation'
 
 interface CardDisplayProps {
   card: number
@@ -13,6 +14,8 @@ export function CardDisplay({
   onClick,
   faceDown = false,
 }: CardDisplayProps) {
+  const { isMobileLandscape, isMobileLandscapeSm } = useScreenOrientation()
+
   if (faceDown) {
     return (
       <div className="card card-back" onClick={onClick}>
@@ -34,6 +37,12 @@ export function CardDisplay({
     ? 'card-joker ' + (card === 53 ? 'card-joker-red' : 'card-joker-black')
     : ''
 
+  // 响应式字体大小
+  const rankSize = isMobileLandscapeSm ? 'text-[0.5rem]' : isMobileLandscape ? 'text-[0.625rem]' : 'text-xs'
+  const symbolSize = isMobileLandscapeSm ? 'text-[0.625rem]' : isMobileLandscape ? 'text-xs' : 'text-sm'
+  const centerSymbolSize = isMobileLandscapeSm ? 'text-base' : isMobileLandscape ? 'text-lg' : 'text-2xl'
+  const jokerIconSize = isMobileLandscapeSm ? 'text-sm' : isMobileLandscape ? 'text-base' : 'text-xl'
+
   return (
     <div
       className={`card ${selected ? 'selected' : ''} ${red ? 'card-red' : 'card-black'} ${jokerClass}`}
@@ -41,21 +50,21 @@ export function CardDisplay({
     >
       {isJoker ? (
         <div className="flex flex-col items-center justify-center">
-          <span className="text-xl">{card === 53 ? '👑' : '🃏'}</span>
-          <span className="text-xs font-bold mt-1">{rank}</span>
+          <span className={jokerIconSize}>{card === 53 ? '👑' : '🃏'}</span>
+          <span className={`${rankSize} font-bold mt-0.5`}>{rank}</span>
         </div>
       ) : (
         <>
           <div className="card-suit-top">
-            <div className="text-xs font-bold">{rank}</div>
-            <div>{symbol}</div>
+            <div className={`${rankSize} font-bold`}>{rank}</div>
+            <div className={symbolSize}>{symbol}</div>
           </div>
           <div className="card-rank flex-1 flex items-center justify-center">
-            <span className="text-2xl">{symbol}</span>
+            <span className={centerSymbolSize}>{symbol}</span>
           </div>
           <div className="card-suit-bottom">
-            <div>{symbol}</div>
-            <div className="text-xs font-bold">{rank}</div>
+            <div className={symbolSize}>{symbol}</div>
+            <div className={`${rankSize} font-bold`}>{rank}</div>
           </div>
         </>
       )}

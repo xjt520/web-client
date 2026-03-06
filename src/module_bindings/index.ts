@@ -39,13 +39,10 @@ import IdentityDisconnectedReducer from "./identity_disconnected_reducer";
 import CheckBidTimeoutReducer from "./check_bid_timeout_reducer";
 import CheckDoublingTimeoutReducer from "./check_doubling_timeout_reducer";
 import CheckMatchQueueReducer from "./check_match_queue_reducer";
-import CheckTurnTimeoutReducer from "./check_turn_timeout_reducer";
 import CreateAiRoomReducer from "./create_ai_room_reducer";
 import CreateRoomReducer from "./create_room_reducer";
 import DoubleBetReducer from "./double_bet_reducer";
 import EndGameReducer from "./end_game_reducer";
-import EnterSpectateModeReducer from "./enter_spectate_mode_reducer";
-import ExitSpectateModeReducer from "./exit_spectate_mode_reducer";
 import JoinReducer from "./join_reducer";
 import JoinMatchQueueReducer from "./join_match_queue_reducer";
 import JoinRoomReducer from "./join_room_reducer";
@@ -61,7 +58,6 @@ import ResumeGameReducer from "./resume_game_reducer";
 import ScheduleEmptyRoomCheckReducer from "./schedule_empty_room_check_reducer";
 import SetReadyReducer from "./set_ready_reducer";
 import SetTrustedReducer from "./set_trusted_reducer";
-import SpectateRoomReducer from "./spectate_room_reducer";
 import StartAiActionScheduleReducer from "./start_ai_action_schedule_reducer";
 import StartGameReducer from "./start_game_reducer";
 import StartPeriodicCleanupReducer from "./start_periodic_cleanup_reducer";
@@ -92,6 +88,7 @@ import RoomRow from "./room_table";
 import RoomPauseRow from "./room_pause_table";
 import RoomPlayerRow from "./room_player_table";
 import ScoreHistoryRow from "./score_history_table";
+import SystemNotificationRow from "./system_notification_table";
 import UserRow from "./user_table";
 import UserProfileRow from "./user_profile_table";
 import UserSettingsRow from "./user_settings_table";
@@ -286,6 +283,20 @@ const tablesSchema = __schema({
       { name: 'score_history_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, ScoreHistoryRow),
+  system_notification: __table({
+    name: 'system_notification',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { name: 'target_identity', algorithm: 'btree', columns: [
+        'targetIdentity',
+      ] },
+    ],
+    constraints: [
+      { name: 'system_notification_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, SystemNotificationRow),
   user: __table({
     name: 'user',
     indexes: [
@@ -331,13 +342,10 @@ const reducersSchema = __reducers(
   __reducerSchema("check_bid_timeout", CheckBidTimeoutReducer),
   __reducerSchema("check_doubling_timeout", CheckDoublingTimeoutReducer),
   __reducerSchema("check_match_queue", CheckMatchQueueReducer),
-  __reducerSchema("check_turn_timeout", CheckTurnTimeoutReducer),
   __reducerSchema("create_ai_room", CreateAiRoomReducer),
   __reducerSchema("create_room", CreateRoomReducer),
   __reducerSchema("double_bet", DoubleBetReducer),
   __reducerSchema("end_game", EndGameReducer),
-  __reducerSchema("enter_spectate_mode", EnterSpectateModeReducer),
-  __reducerSchema("exit_spectate_mode", ExitSpectateModeReducer),
   __reducerSchema("join", JoinReducer),
   __reducerSchema("join_match_queue", JoinMatchQueueReducer),
   __reducerSchema("join_room", JoinRoomReducer),
@@ -353,7 +361,6 @@ const reducersSchema = __reducers(
   __reducerSchema("schedule_empty_room_check", ScheduleEmptyRoomCheckReducer),
   __reducerSchema("set_ready", SetReadyReducer),
   __reducerSchema("set_trusted", SetTrustedReducer),
-  __reducerSchema("spectate_room", SpectateRoomReducer),
   __reducerSchema("start_ai_action_schedule", StartAiActionScheduleReducer),
   __reducerSchema("start_game", StartGameReducer),
   __reducerSchema("start_periodic_cleanup", StartPeriodicCleanupReducer),

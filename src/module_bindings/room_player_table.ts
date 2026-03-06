@@ -20,6 +20,5 @@ export default __t.row({
   joinedAt: __t.timestamp().name("joined_at"),
   isTrusted: __t.bool().name("is_trusted"),
   consecutiveTimeouts: __t.u8().name("consecutive_timeouts"),
-  isSpectating: __t.bool().name("is_spectating"),
   isAi: __t.bool().name("is_ai"),
 });

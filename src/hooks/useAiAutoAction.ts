@@ -23,37 +23,35 @@ export function useAiAutoAction({
   gameStatus,
 }: UseAiAutoActionProps) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const lastActionTimeRef = useRef<number>(0)
 
   useEffect(() => {
-    console.log('[AI Auto Action] Hook triggered:', { isAiMode, roomId: roomId?.toString(), gameStatus })
-
     // 清理之前的定时器
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
       timeoutRef.current = null
     }
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
 
     // 只在人机模式且游戏进行中时启动
     if (!isAiMode || !roomId || gameStatus === 'waiting' || gameStatus === 'finished') {
-      console.log('[AI Auto Action] Skipping - not AI mode or waiting/finished status')
       return
     }
 
     const conn = getConnection()
     if (!conn) {
-      console.log('[AI Auto Action] No connection')
       return
     }
-
-    console.log('[AI Auto Action] Starting AI action trigger for status:', gameStatus)
 
     const triggerAction = () => {
       const currentConn = getConnection()
       if (!currentConn || !roomId) return
 
       currentConn.reducers.triggerAiAction({ roomId }).then(() => {
-        console.log('[AI Auto Action] Triggered successfully')
         lastActionTimeRef.current = Date.now()
       }).catch((err) => {
         console.error('[AI Auto Action] 触发AI行动失败:', err)
@@ -68,9 +66,7 @@ export function useAiAutoAction({
     timeoutRef.current = setTimeout(() => {
       triggerAction()
       // 之后每隔 AI_THINK_DELAY_MS 触发一次
-      const intervalId = setInterval(triggerAction, AI_THINK_DELAY_MS)
-      // 保存 interval ID 以便清理
-      timeoutRef.current = intervalId as unknown as ReturnType<typeof setTimeout>
+      intervalRef.current = setInterval(triggerAction, AI_THINK_DELAY_MS)
     }, delay)
 
     // 清理函数
@@ -78,6 +74,10 @@ export function useAiAutoAction({
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
         timeoutRef.current = null
+      }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
       }
     }
   }, [getConnection, roomId, isAiMode, gameStatus])

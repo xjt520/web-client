@@ -2,7 +2,82 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Toast 动画 */
+/* ==================== CSS 变量系统 ==================== */
+:root {
+  /* 默认桌面尺寸 */
+  --card-width: 56px;
+  --card-height: 80px;
+  --card-radius: 6px;
+  --fan-radius: 280px;
+  --fan-height: 120px;
+  --opponent-card-width: 40px;
+  --opponent-card-height: 56px;
+  --button-padding-x: 2rem;
+  --button-padding-y: 0.75rem;
+  --button-font-size: 1rem;
+  --game-table-height: 24rem;
+}
+
+/* 平板横屏 */
+@media (min-width: 768px) and (orientation: landscape) {
+  :root {
+    --card-width: 52px;
+    --card-height: 74px;
+    --fan-radius: 240px;
+    --fan-height: 100px;
+  }
+}
+
+/* 手机竖屏 */
+@media (max-width: 640px) and (orientation: portrait) {
+  :root {
+    --card-width: 44px;
+    --card-height: 62px;
+    --card-radius: 4px;
+    --fan-radius: 160px;
+    --fan-height: 70px;
+    --opponent-card-width: 28px;
+    --opponent-card-height: 40px;
+    --button-padding-x: 1.25rem;
+    --button-padding-y: 0.625rem;
+    --button-font-size: 0.875rem;
+  }
+}
+
+/* 手机横屏 (关键) */
+@media (max-height: 500px) and (orientation: landscape) {
+  :root {
+    --card-width: 44px;
+    --card-height: 62px;
+    --card-radius: 4px;
+    --fan-radius: 160px;
+    --fan-height: 60px;
+    --opponent-card-width: 28px;
+    --opponent-card-height: 40px;
+    --button-padding-x: 1rem;
+    --button-padding-y: 0.5rem;
+    --button-font-size: 0.875rem;
+    --game-table-height: 100vh;
+  }
+}
+
+/* 超小屏幕横屏 */
+@media (max-height: 400px) and (orientation: landscape) {
+  :root {
+    --card-width: 38px;
+    --card-height: 54px;
+    --card-radius: 3px;
+    --fan-radius: 140px;
+    --fan-height: 50px;
+    --opponent-card-width: 24px;
+    --opponent-card-height: 34px;
+    --button-padding-x: 0.75rem;
+    --button-padding-y: 0.375rem;
+    --button-font-size: 0.75rem;
+  }
+}
+
+/* ==================== Toast 动画 ==================== */
 @keyframes toast-in {
   0% {
     opacity: 0;
@@ -33,6 +108,7 @@
   animation: toast-out 0.2s ease-out forwards;
 }
 
+/* ==================== 基础样式 ==================== */
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -40,14 +116,16 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* 防止双击缩放 */
+  touch-action: manipulation;
 }
 
-/* 卡牌基础样式 */
+/* ==================== 卡牌基础样式 ==================== */
 .card {
-  width: 56px;
-  height: 80px;
+  width: var(--card-width);
+  height: var(--card-height);
   background: linear-gradient(145deg, #ffffff 0%, #f5f5f5 100%);
-  border-radius: 6px;
+  border-radius: var(--card-radius);
   display: flex;
   flex-direction: column;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
@@ -57,6 +135,9 @@ body {
   border: 1px solid rgba(0,0,0,0.08);
   position: relative;
   overflow: hidden;
+  /* 触摸优化 */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
 
 .card::before {
@@ -69,9 +150,20 @@ body {
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
 }
 
-.card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+/* 触摸设备禁用 hover 效果 */
+@media (hover: none) and (pointer: coarse) {
+  .card:hover {
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+}
+
+/* 非触摸设备 hover 效果 */
+@media not all and (hover: none) and (pointer: coarse) {
+  .card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  }
 }
 
 /* 选中状态 - 只在非扇形布局时应用 */
@@ -81,10 +173,10 @@ body {
 }
 
 .card-back {
-  width: 56px;
-  height: 80px;
+  width: var(--card-width);
+  height: var(--card-height);
   background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 100%);
-  border-radius: 6px;
+  border-radius: var(--card-radius);
   border: 2px solid #3d5a80;
   display: flex;
   align-items: center;
@@ -121,6 +213,48 @@ body {
   transform: rotate(180deg);
 }
 
+/* 手机横屏卡牌内容紧凑 */
+@media (max-height: 500px) and (orientation: landscape) {
+  .card-suit-top {
+    top: 2px;
+    left: 2px;
+  }
+
+  .card-suit-bottom {
+    bottom: 2px;
+    right: 2px;
+  }
+
+  .card-suit-top .text-xs,
+  .card-suit-bottom .text-xs {
+    font-size: 0.625rem;
+    line-height: 1.1;
+  }
+}
+
+/* 超小屏幕横屏卡牌内容更紧凑 */
+@media (max-height: 400px) and (orientation: landscape) {
+  .card-suit-top {
+    top: 1px;
+    left: 1px;
+  }
+
+  .card-suit-bottom {
+    bottom: 1px;
+    right: 1px;
+  }
+
+  .card-suit-top .text-xs,
+  .card-suit-bottom .text-xs {
+    font-size: 0.5rem;
+    line-height: 1;
+  }
+
+  .card-rank span {
+    font-size: 1.25rem;
+  }
+}
+
 .card-rank {
   flex: 1;
   display: flex;
@@ -143,7 +277,7 @@ body {
   font-weight: bold;
 }
 
-/* 扇形手牌容器 */
+/* ==================== 扇形手牌容器 ==================== */
 .fan-container {
   position: relative;
   display: flex;
@@ -157,7 +291,7 @@ body {
   position: absolute;
   bottom: 0;
   left: 50%;
-  margin-left: -28px;
+  margin-left: calc(var(--card-width) / -2);
   transform-origin: center bottom;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -168,10 +302,20 @@ body {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* hover 效果 - 只对未选中的牌生效 */
-.fan-card:not(.fan-card-selected):hover .card {
-  transform: translateY(-10px);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+/* 触摸设备禁用 hover 效果 */
+@media (hover: none) and (pointer: coarse) {
+  .fan-card:not(.fan-card-selected):hover .card {
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+}
+
+/* 非触摸设备 hover 效果 */
+@media not all and (hover: none) and (pointer: coarse) {
+  .fan-card:not(.fan-card-selected):hover .card {
+    transform: translateY(-10px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+  }
 }
 
 /* 选中的扇形卡牌 - 不改变 z-index，保持原有层级 */
@@ -186,19 +330,26 @@ body {
   border-color: rgba(59, 130, 246, 0.8);
 }
 
-/* 对手手牌样式 */
+/* 手机横屏选中效果调整 */
+@media (max-height: 500px) and (orientation: landscape) {
+  .fan-card-selected .card {
+    transform: translateY(-12px);
+  }
+}
+
+/* ==================== 对手手牌样式 ==================== */
 .opponent-cards {
   display: flex;
   gap: -20px;
 }
 
 .opponent-card {
-  width: 40px;
-  height: 56px;
+  width: var(--opponent-card-width);
+  height: var(--opponent-card-height);
   background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 100%);
   border-radius: 4px;
   border: 1px solid #3d5a80;
-  margin-left: -20px;
+  margin-left: calc(var(--opponent-card-width) * -0.5);
   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
@@ -206,7 +357,7 @@ body {
   margin-left: 0;
 }
 
-/* 底牌样式 */
+/* ==================== 底牌样式 ==================== */
 .landlord-cards-container {
   display: flex;
   gap: 8px;
@@ -216,7 +367,15 @@ body {
   backdrop-filter: blur(4px);
 }
 
-/* 出牌区域样式 */
+/* 手机横屏底牌紧凑 */
+@media (max-height: 500px) and (orientation: landscape) {
+  .landlord-cards-container {
+    padding: 4px 8px;
+    gap: 4px;
+  }
+}
+
+/* ==================== 出牌区域样式 ==================== */
 .play-area-container {
   display: flex;
   gap: 4px;
@@ -225,14 +384,51 @@ body {
   max-width: 400px;
 }
 
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .card {
-    width: 48px;
-    height: 68px;
+/* 手机横屏出牌区域 */
+@media (max-height: 500px) and (orientation: landscape) {
+  .play-area-container {
+    max-width: 200px;
+    gap: 2px;
   }
+}
 
-  .fan-card-wrapper {
-    margin-left: -24px;
+/* ==================== 游戏按钮样式 ==================== */
+.game-action-btn {
+  padding: var(--button-padding-y) var(--button-padding-x);
+  font-size: var(--button-font-size);
+}
+
+/* 触摸设备按钮优化 */
+@media (hover: none) and (pointer: coarse) {
+  .game-action-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ==================== 横屏提示样式 ==================== */
+.orientation-prompt {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.orientation-icon {
+  font-size: 4rem;
+  animation: rotate-phone 2s ease-in-out infinite;
+}
+
+@keyframes rotate-phone {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(90deg);
   }
 }

@@ -140,9 +140,9 @@ export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
       db.room_player.removeOnUpdate(handlePlayerUpdate)
       db.game_result.removeOnInsert(handleGameResultInsert)
       db.game_result.removeOnDelete(handleGameResultDelete)
-      db.game.onInsert(handleGameInsert)
-      db.game.onDelete(handleGameDelete)
-      db.game.onUpdate(handleGameUpdate)
+      db.game.removeOnInsert(handleGameInsert)
+      db.game.removeOnDelete(handleGameDelete)
+      db.game.removeOnUpdate(handleGameUpdate)
     }
   }, [conn, room.id])
 
@@ -150,10 +150,8 @@ export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
     (p) => conn?.identity && p.playerIdentity.toHexString() === conn.identity.toHexString()
   )
 
-  // 区分正常玩家和观战者
-  const normalPlayers = players.filter((p) => !p.isSpectating && p.seatIndex < 100)
-  const spectators = players.filter((p) => p.isSpectating || p.seatIndex >= 100)
-  const isSpectator = currentPlayer && (currentPlayer.isSpectating || currentPlayer.seatIndex >= 100)
+  // 正常玩家（座位号 < 100）
+  const normalPlayers = players.filter((p) => p.seatIndex < 100)
 
   const isOwner = conn?.identity && room.owner.toHexString() === conn.identity.toHexString()
   const allReady = normalPlayers.length === 3 && normalPlayers.every((p) => p.ready)
@@ -199,25 +197,25 @@ export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
   }, [conn, room.id])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-900 to-gray-900 flex items-center justify-center">
-      <div className="bg-gray-800 rounded-xl p-8 w-full max-w-md">
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-white mb-2">{room.name}</h2>
-          <p className="text-gray-400">
-            {isAfterGame ? '上一局游戏结束，等待重新开始...' : isSpectator ? '观战模式' : '等待玩家准备...'}
+    <div className="min-h-screen bg-gradient-to-br from-green-900 to-gray-900 flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-gray-800 rounded-xl p-4 sm:p-6 md:p-8 w-full max-w-md">
+        <div className="text-center mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-1 sm:mb-2">{room.name}</h2>
+          <p className="text-sm sm:text-base text-gray-400">
+            {isAfterGame ? '上一局游戏结束，等待重新开始...' : '等待玩家准备...'}
           </p>
         </div>
 
         {/* 上一局结算展示 */}
         {isAfterGame && sortedGameResults.length > 0 && (
-          <div className="mb-6 bg-gray-700/50 rounded-lg p-4">
-            <h3 className="text-white font-medium mb-3 text-center">📊 上一局战绩</h3>
+          <div className="mb-4 sm:mb-6 bg-gray-700/50 rounded-lg p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base text-white font-medium mb-2 sm:mb-3 text-center">📊 上一局战绩</h3>
 
             {/* 春天/反春天标签 */}
             {game && (game.isSpring || game.isAntiSpring) && (
-              <div className="mb-3 text-center">
+              <div className="mb-2 sm:mb-3 text-center">
                 <span className={`
-                  inline-block px-3 py-1 rounded-full text-xs font-bold
+                  inline-block px-2 sm:px-3 py-1 rounded-full text-xs font-bold
                   ${game.isSpring ? 'bg-red-500/30 text-red-300' : 'bg-green-500/30 text-green-300'}
                 `}>
                   {game.isSpring ? '🌸 春天！' : '🌿 反春天！'}
@@ -239,41 +237,41 @@ export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
                   <div
                     key={result.id.toString()}
                     className={`
-                      rounded-lg p-3 text-sm
+                      rounded-lg p-2 sm:p-3 text-xs sm:text-sm
                       ${isMe ? 'bg-blue-900/30 border border-blue-500/50' : 'bg-gray-600/30'}
                     `}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between mb-1 sm:mb-2">
+                      <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
                         {/* 角色标签 */}
                         <span className={`
-                          px-2 py-0.5 rounded text-xs font-medium
+                          px-1.5 sm:px-2 py-0.5 rounded text-xs font-medium shrink-0
                           ${result.isLandlord ? 'bg-red-600/50 text-red-200' : 'bg-green-600/50 text-green-200'}
                         `}>
-                          {result.isLandlord ? '👑 地主' : '🌾 农民'}
+                          {result.isLandlord ? '👑' : '🌾'}
                         </span>
                         {/* 玩家名称 */}
-                        <span className={`font-medium ${isMe ? 'text-blue-300' : 'text-gray-300'}`}>
+                        <span className={`font-medium truncate ${isMe ? 'text-blue-300' : 'text-gray-300'}`}>
                           {getPlayerName(identityHex)}
-                          {isMe && <span className="text-xs text-blue-400 ml-1">(你)</span>}
+                          {isMe && <span className="text-xs text-blue-400 ml-1 hidden sm:inline">(你)</span>}
                         </span>
                       </div>
                       {/* 胜负和积分 */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                         <span className={`
-                          px-2 py-0.5 rounded text-xs font-bold
+                          px-1.5 sm:px-2 py-0.5 rounded text-xs font-bold
                           ${playerResultIsWinner ? 'bg-yellow-600/50 text-yellow-200' : 'bg-gray-500/50 text-gray-300'}
                         `}>
-                          {playerResultIsWinner ? '✓ 胜' : '✗ 负'}
+                          {playerResultIsWinner ? '✓' : '✗'}
                         </span>
-                        <span className={`font-bold ${result.finalScore > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        <span className={`font-bold text-sm sm:text-base ${result.finalScore > 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {result.finalScore > 0 ? '+' : ''}{result.finalScore}
                         </span>
                       </div>
                     </div>
 
-                    {/* 积分明细 */}
-                    <div className="grid grid-cols-4 gap-2 text-xs text-gray-400">
+                    {/* 积分明细 - 移动端使用2列 */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 sm:gap-2 text-xs text-gray-400">
                       <div className="text-center">
                         <div className="text-gray-500">基础</div>
                         <div className="text-white">{result.baseScore}</div>
@@ -298,14 +296,13 @@ export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
           </div>
         )}
 
-        <div className="mb-6">
-          <div className="flex justify-between text-sm text-gray-400 mb-2">
+        <div className="mb-4 sm:mb-6">
+          <div className="flex justify-between text-xs sm:text-sm text-gray-400 mb-2">
             <span>玩家 ({normalPlayers.length}/3)</span>
-            {isOwner && !isSpectator && <span className="text-yellow-400">房主</span>}
-            {isSpectator && <span className="text-blue-400">👁️ 观战者</span>}
+            {isOwner && <span className="text-yellow-400">房主</span>}
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {normalPlayers.map((player) => {
               const isMe = conn?.identity && player.playerIdentity.toHexString() === conn.identity.toHexString()
               const isPlayerOwner = player.playerIdentity.toHexString() === room.owner.toHexString()
@@ -313,21 +310,21 @@ export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
               return (
                 <div
                   key={player.playerIdentity.toHexString()}
-                  className={`flex items-center justify-between p-3 rounded-lg ${
+                  className={`flex items-center justify-between p-2 sm:p-3 rounded-lg ${
                     isMe ? 'bg-blue-900/50 border border-blue-500' : player.isAi ? 'bg-purple-900/30 border border-purple-500' : 'bg-gray-700'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    {player.isAi && <span className="text-purple-400">🤖</span>}
-                    <span className="text-white">{player.playerName}</span>
-                    {isPlayerOwner && <span className="text-yellow-400 text-sm">👑</span>}
-                    {isMe && <span className="text-blue-400 text-sm">(我)</span>}
+                  <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                    {player.isAi && <span className="text-purple-400 text-sm sm:text-base">🤖</span>}
+                    <span className="text-white text-sm sm:text-base truncate">{player.playerName}</span>
+                    {isPlayerOwner && <span className="text-yellow-400 text-xs sm:text-sm">👑</span>}
+                    {isMe && <span className="text-blue-400 text-xs sm:text-sm">(我)</span>}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     {player.ready ? (
-                      <span className="text-green-400 text-sm">✓ 已准备</span>
+                      <span className="text-green-400 text-xs sm:text-sm">✓ 已准备</span>
                     ) : (
-                      <span className="text-gray-500 text-sm">未准备</span>
+                      <span className="text-gray-500 text-xs sm:text-sm">未准备</span>
                     )}
                   </div>
                 </div>
@@ -337,108 +334,76 @@ export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
             {Array.from({ length: 3 - normalPlayers.length }).map((_, i) => (
               <div
                 key={`empty-${i}`}
-                className="flex items-center justify-center p-3 rounded-lg bg-gray-700/50 border border-dashed border-gray-600"
+                className="flex items-center justify-center p-2 sm:p-3 rounded-lg bg-gray-700/50 border border-dashed border-gray-600"
               >
-                <span className="text-gray-500">等待玩家加入...</span>
+                <span className="text-gray-500 text-xs sm:text-sm">等待玩家加入...</span>
               </div>
             ))}
-
-            {/* 显示观战者 */}
-            {spectators.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-600">
-                <p className="text-gray-400 text-sm mb-2">观战者 ({spectators.length})</p>
-                <div className="flex flex-wrap gap-2">
-                  {spectators.map((s) => (
-                    <span
-                      key={s.playerIdentity.toHexString()}
-                      className="px-2 py-1 bg-blue-900/30 text-blue-300 rounded text-sm"
-                    >
-                      👁️ {s.playerName.replace('👁️ ', '')}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
-        <div className="flex flex-col gap-3">
-          {/* 观战者只显示离开按钮 */}
-          {isSpectator ? (
+        <div className="flex flex-col gap-2 sm:gap-3">
+          {/* 游戏结束后显示重新开始按钮 */}
+          {isAfterGame ? (
             <>
-              <p className="text-center text-gray-400 text-sm">您正在观战中，游戏结束后可继续观战下一局</p>
-              <button
-                onClick={handleLeaveRoom}
-                className="w-full py-3 bg-red-600/50 hover:bg-red-600 text-red-200 font-medium rounded-lg transition-colors"
-              >
-                离开房间
-              </button>
+              {isOwner && (
+                <button
+                  onClick={handleRestartGame}
+                  className="w-full py-3 sm:py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors text-sm sm:text-base touch:manipulation"
+                >
+                  再来一局
+                </button>
+              )}
+              {!isOwner && (
+                <p className="text-center text-gray-400 text-xs sm:text-sm">等待房主开始新一局...</p>
+              )}
             </>
           ) : (
             <>
-              {/* 游戏结束后显示重新开始按钮 */}
-              {isAfterGame ? (
-                <>
-                  {isOwner && (
-                    <button
-                      onClick={handleRestartGame}
-                      className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                    >
-                      再来一局
-                    </button>
-                  )}
-                  {!isOwner && (
-                    <p className="text-center text-gray-400 text-sm">等待房主开始新一局...</p>
-                  )}
-                </>
-              ) : (
-                <>
-                  {currentPlayer && !currentPlayer.ready && (
-                    <button
-                      onClick={handleReady}
-                      className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
-                    >
-                      准备
-                    </button>
-                  )}
-
-                  {currentPlayer && currentPlayer.ready && (
-                    <button
-                      onClick={handleReady}
-                      className="w-full py-3 bg-gray-600 hover:bg-gray-500 text-white font-medium rounded-lg transition-colors"
-                    >
-                      取消准备
-                    </button>
-                  )}
-
-                  {isOwner && (
-                    <button
-                      onClick={handleStartGame}
-                      disabled={!canStart}
-                      className={`w-full py-3 font-medium rounded-lg transition-colors ${
-                        canStart
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                          : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                      }`}
-                    >
-                      {normalPlayers.length < 3
-                        ? `等待玩家 (${normalPlayers.length}/3)`
-                        : !allReady
-                        ? '等待所有玩家准备'
-                        : '开始游戏'}
-                    </button>
-                  )}
-                </>
+              {currentPlayer && !currentPlayer.ready && (
+                <button
+                  onClick={handleReady}
+                  className="w-full py-3 sm:py-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors text-sm sm:text-base touch:manipulation"
+                >
+                  准备
+                </button>
               )}
 
-              <button
-                onClick={handleLeaveRoom}
-                className="w-full py-3 bg-red-600/50 hover:bg-red-600 text-red-200 font-medium rounded-lg transition-colors"
-              >
-                离开房间
-              </button>
+              {currentPlayer && currentPlayer.ready && (
+                <button
+                  onClick={handleReady}
+                  className="w-full py-3 sm:py-4 bg-gray-600 hover:bg-gray-500 text-white font-medium rounded-lg transition-colors text-sm sm:text-base touch:manipulation"
+                >
+                  取消准备
+                </button>
+              )}
+
+              {isOwner && (
+                <button
+                  onClick={handleStartGame}
+                  disabled={!canStart}
+                  className={`w-full py-3 sm:py-4 font-medium rounded-lg transition-colors text-sm sm:text-base touch:manipulation ${
+                    canStart
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  {normalPlayers.length < 3
+                    ? `等待玩家 (${normalPlayers.length}/3)`
+                    : !allReady
+                    ? '等待所有玩家准备'
+                    : '开始游戏'}
+                </button>
+              )}
             </>
           )}
+
+          <button
+            onClick={handleLeaveRoom}
+            className="w-full py-3 sm:py-4 bg-red-600/50 hover:bg-red-600 text-red-200 font-medium rounded-lg transition-colors text-sm sm:text-base touch:manipulation"
+          >
+            离开房间
+          </button>
         </div>
       </div>
     </div>

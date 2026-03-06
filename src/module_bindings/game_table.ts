@@ -19,10 +19,12 @@ export default __t.row({
   status: __t.string(),
   winner: __t.option(__t.string()),
   createdAt: __t.timestamp().name("created_at"),
+  lastActionTime: __t.timestamp().name("last_action_time"),
   turnStartTime: __t.option(__t.timestamp()).name("turn_start_time"),
   doublingMultiple: __t.u8().name("doubling_multiple"),
   currentDoublingTurn: __t.option(__t.u8()).name("current_doubling_turn"),
   isSpring: __t.bool().name("is_spring"),
   isAntiSpring: __t.bool().name("is_anti_spring"),
   landlordPlayCount: __t.u8().name("landlord_play_count"),
+  bombCount: __t.u8().name("bomb_count"),
 });

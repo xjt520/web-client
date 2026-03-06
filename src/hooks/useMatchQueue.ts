@@ -35,11 +35,13 @@ export function useMatchQueue(getConnection: () => DbConnection | null): MatchQu
     db.room_player.onInsert((_ctx: EventContext, player: RoomPlayer) => {
       if (!conn.identity) return
       if (player.playerIdentity.toHexString() === conn.identity.toHexString()) {
-        // 匹配成功，加入房间
-        setIsMatching(false)
-        setMatchTime(0)
-        matchStartTime.current = null
-        setMatchedRoomId(player.roomId)
+        // 只有在正在匹配时才设置 matchedRoomId（避免页面刷新时误触发）
+        if (isMatching) {
+          setIsMatching(false)
+          setMatchTime(0)
+          matchStartTime.current = null
+          setMatchedRoomId(player.roomId)
+        }
       }
     })
 

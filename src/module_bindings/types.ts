@@ -58,12 +58,14 @@ export const Game = __t.object("Game", {
   status: __t.string(),
   winner: __t.option(__t.string()),
   createdAt: __t.timestamp(),
+  lastActionTime: __t.timestamp(),
   turnStartTime: __t.option(__t.timestamp()),
   doublingMultiple: __t.u8(),
   currentDoublingTurn: __t.option(__t.u8()),
   isSpring: __t.bool(),
   isAntiSpring: __t.bool(),
   landlordPlayCount: __t.u8(),
+  bombCount: __t.u8(),
 });
 export type Game = __Infer<typeof Game>;
 
@@ -190,7 +192,6 @@ export const RoomPlayer = __t.object("RoomPlayer", {
   joinedAt: __t.timestamp(),
   isTrusted: __t.bool(),
   consecutiveTimeouts: __t.u8(),
-  isSpectating: __t.bool(),
   isAi: __t.bool(),
 });
 export type RoomPlayer = __Infer<typeof RoomPlayer>;
@@ -204,6 +205,15 @@ export const ScoreHistory = __t.object("ScoreHistory", {
   createdAt: __t.timestamp(),
 });
 export type ScoreHistory = __Infer<typeof ScoreHistory>;
+
+export const SystemNotification = __t.object("SystemNotification", {
+  id: __t.u64(),
+  targetIdentity: __t.identity(),
+  notificationType: __t.string(),
+  message: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type SystemNotification = __Infer<typeof SystemNotification>;
 
 export const User = __t.object("User", {
   identity: __t.identity(),

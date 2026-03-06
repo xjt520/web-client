@@ -1,5 +1,5 @@
 import { useSpacetimeDB } from 'spacetimedb/react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ConnectionStatus } from './components/auth/ConnectionStatus'
 import { LoginScreen } from './components/auth/LoginScreen'
 import { LobbyLayout } from './components/lobby/LobbyLayout'
@@ -17,7 +17,17 @@ const STDB_MODULE = import.meta.env.VITE_STDB_MODULE || 'doudizhu-game'
 export default function App() {
   const { isActive, connectionError, getConnection } = useSpacetimeDB()
   const [userName, setUserName] = useLocalStorage<string | null>('doudizhu_username', null)
-  const { currentRoom, gameStatus } = useGame(getConnection as () => DbConnection | null)
+  const { currentRoom, gameStatus, latestNotification } = useGame(getConnection as () => DbConnection | null)
+  const [showNotification, setShowNotification] = useState(false)
+
+  // 显示系统通知
+  useEffect(() => {
+    if (latestNotification) {
+      setShowNotification(true)
+      const timer = setTimeout(() => setShowNotification(false), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [latestNotification])
 
   // 页面加载时打印数据库连接信息
   useEffect(() => {
@@ -87,7 +97,7 @@ export default function App() {
     )
   }
 
-  // Show waiting room when game is finished (player stays in room)
+  // 游戏结束后显示等待室（可以继续下一局）
   if (currentRoom && gameStatus === 'finished') {
     return (
       <WaitingRoom
@@ -98,10 +108,29 @@ export default function App() {
   }
 
   return (
-    <LobbyLayout
-      userName={userName}
-      onLogout={() => setUserName(null)}
-      getConnection={() => getConnection() as DbConnection | null}
-    />
+    <>
+      {/* 系统通知弹窗 */}
+      {showNotification && latestNotification && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-bounce">
+          <div className="bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span className="font-medium">{latestNotification.message}</span>
+            <button
+              onClick={() => setShowNotification(false)}
+              className="ml-2 text-white/80 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+      <LobbyLayout
+        userName={userName}
+        onLogout={() => setUserName(null)}
+        getConnection={() => getConnection() as DbConnection | null}
+      />
+    </>
   )
 }

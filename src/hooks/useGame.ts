@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { DbConnection } from '../lib/spacetime'
-import type { Room, Game, PlayerHand, RoomPlayer, CurrentPlay, LandlordCards, Bid } from '../module_bindings/types'
+import type { Room, Game, PlayerHand, RoomPlayer, CurrentPlay, LandlordCards, Bid, SystemNotification } from '../module_bindings/types'
 import type { EventContext } from '../module_bindings'
 
 interface GameState {
@@ -14,6 +14,8 @@ interface GameState {
   landlordCards: LandlordCards | null
   bids: Bid[]
   gameStatus: string
+  notifications: SystemNotification[]  // 系统通知
+  latestNotification: SystemNotification | null  // 最新通知
 }
 
 export function useGame(getConnection: () => DbConnection | null): GameState {
@@ -25,10 +27,14 @@ export function useGame(getConnection: () => DbConnection | null): GameState {
   const [currentPlay, setCurrentPlay] = useState<CurrentPlay | null>(null)
   const [landlordCards, setLandlordCards] = useState<LandlordCards | null>(null)
   const [bids, setBids] = useState<Bid[]>([])
+  const [notifications, setNotifications] = useState<SystemNotification[]>([])
+  const [latestNotification, setLatestNotification] = useState<SystemNotification | null>(null)
 
   const processedRoomIds = useRef<Set<string>>(new Set())
   const processedPlayerIds = useRef<Set<string>>(new Set())
   const processedBidIds = useRef<Set<string>>(new Set())
+  const processedNotificationIds = useRef<Set<string>>(new Set())
+  const notificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const conn = getConnection()
 
@@ -156,6 +162,38 @@ export function useGame(getConnection: () => DbConnection | null): GameState {
       setBids((prev) => prev.filter((b) => b.id.toString() !== bidId))
     })
 
+    // 系统通知事件监听
+    db.system_notification.onInsert((_ctx: EventContext, notification: SystemNotification) => {
+      // 只处理发给当前用户的通知
+      if (!conn?.identity || notification.targetIdentity.toHexString() !== conn.identity.toHexString()) {
+        return
+      }
+
+      const notificationId = notification.id.toString()
+      if (processedNotificationIds.current.has(notificationId)) return
+      processedNotificationIds.current.add(notificationId)
+
+      setNotifications((prev) => [...prev, notification])
+      setLatestNotification(notification)
+
+      // 清除之前的timeout
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current)
+      }
+
+      // 5秒后清除最新通知
+      notificationTimeoutRef.current = setTimeout(() => {
+        setLatestNotification(null)
+        notificationTimeoutRef.current = null
+      }, 5000)
+    })
+
+    db.system_notification.onDelete((_ctx: EventContext, notification: SystemNotification) => {
+      const notificationId = notification.id.toString()
+      processedNotificationIds.current.delete(notificationId)
+      setNotifications((prev) => prev.filter((n) => n.id.toString() !== notificationId))
+    })
+
     conn.subscriptionBuilder()
       .onApplied(() => {
         const initialRooms = Array.from(db.room.iter()) as unknown as Room[]
@@ -165,6 +203,7 @@ export function useGame(getConnection: () => DbConnection | null): GameState {
         const initialCurrentPlay = Array.from(db.current_play.iter()) as unknown as CurrentPlay[]
         const initialLandlordCards = Array.from(db.landlord_cards.iter()) as unknown as LandlordCards[]
         const initialBids = Array.from(db.bid.iter()) as unknown as Bid[]
+        const initialNotifications = Array.from(db.system_notification.iter()) as unknown as SystemNotification[]
 
         initialRooms.forEach((r) => processedRoomIds.current.add(r.id.toString()))
         initialPlayers.forEach((p) =>
@@ -182,6 +221,13 @@ export function useGame(getConnection: () => DbConnection | null): GameState {
             (h) => h.playerIdentity.toHexString() === conn.identity!.toHexString()
           )
           setPlayerHand(myHand || null)
+
+          // 过滤发给当前用户的通知
+          const myNotifications = initialNotifications.filter(
+            (n) => n.targetIdentity.toHexString() === conn.identity!.toHexString()
+          )
+          myNotifications.forEach((n) => processedNotificationIds.current.add(n.id.toString()))
+          setNotifications(myNotifications)
         }
 
         setCurrentPlay(initialCurrentPlay[0] || null)
@@ -195,7 +241,16 @@ export function useGame(getConnection: () => DbConnection | null): GameState {
         'SELECT * FROM current_play',
         'SELECT * FROM landlord_cards',
         'SELECT * FROM bid',
+        'SELECT * FROM system_notification',
       ])
+
+    // Cleanup function
+    return () => {
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current)
+        notificationTimeoutRef.current = null
+      }
+    }
   }, [conn])
 
   const findCurrentRoom = useCallback(() => {
@@ -233,5 +288,7 @@ export function useGame(getConnection: () => DbConnection | null): GameState {
     landlordCards,
     bids,
     gameStatus,
+    notifications,
+    latestNotification,
   }
 }

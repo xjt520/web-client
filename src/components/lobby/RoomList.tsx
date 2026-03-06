@@ -6,10 +6,9 @@ import type { EventContext } from '../../module_bindings'
 interface RoomListProps {
   getConnection: () => DbConnection | null
   onError: (error: string) => void
-  onSpectate?: (roomId: bigint) => void
 }
 
-export function RoomList({ getConnection, onError, onSpectate }: RoomListProps) {
+export function RoomList({ getConnection, onError }: RoomListProps) {
   const [rooms, setRooms] = useState<Room[]>([])
   const [players, setPlayers] = useState<RoomPlayer[]>([])
   const [joiningRoom, setJoiningRoom] = useState<bigint | null>(null)
@@ -184,15 +183,6 @@ export function RoomList({ getConnection, onError, onSpectate }: RoomListProps) 
                       ))}
                     </div>
                   </div>
-
-                  {onSpectate && (
-                    <button
-                      onClick={() => onSpectate(room.id)}
-                      className="w-full py-2 rounded-lg font-medium transition-colors bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      👁️ 观战
-                    </button>
-                  )}
                 </div>
               )
             })}

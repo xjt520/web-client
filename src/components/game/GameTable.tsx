@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { PlayerHand } from './PlayerHand'
 import { OpponentHand } from './OpponentHand'
 import { PlayArea } from './PlayArea'
@@ -10,10 +10,13 @@ import { GameResultModal } from './GameResultModal'
 import { TrustControl } from './TrustControl'
 import { PlayHistory } from './PlayHistory'
 import { ToastContainer } from '../common/ToastContainer'
-import { SpectatorHands } from './SpectatorHands'
+import { ConfirmDialog } from '../common/ConfirmDialog'
+import { PlayerActionTimer, ActionType } from './PlayerActionTimer'
+import { OrientationPrompt } from './OrientationPrompt'
 import { useCardSelection } from '../../hooks/useCardSelection'
 import { useToast } from '../../hooks/useToast'
 import { useAiAutoAction } from '../../hooks/useAiAutoAction'
+import { useScreenOrientation } from '../../hooks/useScreenOrientation'
 import type { DbConnection } from '../../lib/spacetime'
 import type { Room, Game, PlayerHand as PlayerHandType, RoomPlayer, CurrentPlay, LandlordCards as LandlordCardsType, Bid, Doubling, GameResult, Play } from '../../module_bindings/types'
 import type { EventContext } from '../../module_bindings'
@@ -26,7 +29,6 @@ interface GameTableProps {
 export function GameTable({ room, getConnection }: GameTableProps) {
   const [game, setGame] = useState<Game | null>(null)
   const [myHand, setMyHand] = useState<PlayerHandType | null>(null)
-  const [allHands, setAllHands] = useState<PlayerHandType[]>([])
   const [players, setPlayers] = useState<RoomPlayer[]>([])
   const [currentPlay, setCurrentPlay] = useState<CurrentPlay | null>(null)
   const [landlordCards, setLandlordCards] = useState<LandlordCardsType | null>(null)
@@ -34,6 +36,7 @@ export function GameTable({ room, getConnection }: GameTableProps) {
   const [doublings, setDoublings] = useState<Doubling[]>([])
   const [gameResults, setGameResults] = useState<GameResult[]>([])
   const [plays, setPlays] = useState<Play[]>([])
+  const [showEndGameConfirm, setShowEndGameConfirm] = useState(false)
 
   const processedPlayerIds = useRef<Set<string>>(new Set())
   const processedBidIds = useRef<Set<string>>(new Set())
@@ -44,6 +47,9 @@ export function GameTable({ room, getConnection }: GameTableProps) {
   const { selectedCards, toggleCard, clearSelection, getSelectedCards, isSelected, setSelection } = useCardSelection()
   const { toasts, removeToast, error, success, warning, info } = useToast()
   const conn = getConnection()
+
+  // 屏幕方向检测
+  const { isMobileLandscape } = useScreenOrientation()
 
   useEffect(() => {
     if (!conn) return
@@ -93,14 +99,6 @@ export function GameTable({ room, getConnection }: GameTableProps) {
     db.player_hand.onInsert((_ctx: EventContext, hand: PlayerHandType) => {
       if (hand.roomId.toString() !== roomId.toString()) return
 
-      // 更新所有手牌列表（观战者用）
-      setAllHands((prev: PlayerHandType[]) => {
-        if (prev.some((h: PlayerHandType) => h.playerIdentity.toHexString() === hand.playerIdentity.toHexString())) {
-          return prev
-        }
-        return [...prev, hand]
-      })
-
       // 更新当前用户手牌
       if (conn.identity && hand.playerIdentity.toHexString() === conn.identity.toHexString()) {
         setMyHand(hand)
@@ -109,13 +107,6 @@ export function GameTable({ room, getConnection }: GameTableProps) {
 
     db.player_hand.onUpdate((_ctx: EventContext, _oldHand: PlayerHandType, newHand: PlayerHandType) => {
       if (newHand.roomId.toString() !== roomId.toString()) return
-
-      // 更新所有手牌列表（观战者用）
-      setAllHands((prev: PlayerHandType[]) =>
-        prev.map((h: PlayerHandType) =>
-          h.playerIdentity.toHexString() === newHand.playerIdentity.toHexString() ? newHand : h
-        )
-      )
 
       // 更新当前用户手牌
       if (conn.identity && newHand.playerIdentity.toHexString() === conn.identity.toHexString()) {
@@ -131,11 +122,10 @@ export function GameTable({ room, getConnection }: GameTableProps) {
 
     db.player_hand.onDelete((_ctx: EventContext, hand: PlayerHandType) => {
       if (hand.roomId.toString() !== roomId.toString()) return
-
-      // 从所有手牌列表中删除
-      setAllHands((prev: PlayerHandType[]) =>
-        prev.filter((h: PlayerHandType) => h.playerIdentity.toHexString() !== hand.playerIdentity.toHexString())
-      )
+      // 如果删除的是当前用户的手牌，清空
+      if (conn.identity && hand.playerIdentity.toHexString() === conn.identity.toHexString()) {
+        setMyHand(null)
+      }
     })
 
     db.current_play.onInsert((_ctx: EventContext, play: CurrentPlay) => {
@@ -307,22 +297,6 @@ export function GameTable({ room, getConnection }: GameTableProps) {
       ])
   }, [conn, room.id])
 
-  // 定时调用超时检查（用于托管自动出牌）
-  useEffect(() => {
-    if (!conn || !game || game.status !== 'playing') return
-
-    // 每秒检查一次超时
-    const interval = setInterval(() => {
-      try {
-        conn.reducers.checkTurnTimeout({ roomId: room.id })
-      } catch (err) {
-        // 忽略错误，可能是还没到超时时间
-      }
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [conn, room.id, game?.status])
-
   // 人机模式AI自动行动
   useAiAutoAction({
     getConnection,
@@ -428,15 +402,8 @@ export function GameTable({ room, getConnection }: GameTableProps) {
   const handleLeaveRoom = useCallback(() => {
     if (!conn) return
 
-    // 判断当前用户是否是观战者
-    const currentMyPlayer = players.find(
-      (p) => conn?.identity && p.playerIdentity.toHexString() === conn.identity.toHexString()
-    )
-    const currentIsSpectator = currentMyPlayer && (currentMyPlayer.isSpectating || currentMyPlayer.seatIndex >= 100)
-
     const status = game?.status || room.status
-    // 观战者可以随时离开房间
-    if (!currentIsSpectator && (status === 'bidding' || status === 'doubling' || status === 'playing')) {
+    if (status === 'bidding' || status === 'doubling' || status === 'playing') {
       warning('游戏进行中无法离开房间，请点击"结束游戏"按钮强制结束游戏。')
       return
     }
@@ -448,7 +415,7 @@ export function GameTable({ room, getConnection }: GameTableProps) {
       const errorMessage = err instanceof Error ? err.message : String(err)
       error(errorMessage)
     }
-  }, [conn, room.id, game?.status, room.status, players])
+  }, [conn, room.id, game?.status, room.status])
 
   const handleEndGame = useCallback(() => {
     if (!conn) return
@@ -480,9 +447,6 @@ export function GameTable({ room, getConnection }: GameTableProps) {
   )
   const isTrusted = myPlayer?.isTrusted ?? false
 
-  // 判断当前用户是否是观战者
-  const isSpectator = myPlayer && (myPlayer.isSpectating || myPlayer.seatIndex >= 100)
-
   const mySeatIndex = myPlayer?.seatIndex ?? 0
 
   const leftPlayer = players.find((p) => p.seatIndex === (mySeatIndex + 1) % 3)
@@ -493,6 +457,35 @@ export function GameTable({ room, getConnection }: GameTableProps) {
   const isDoubling = gameStatus === 'doubling'
   const isPlaying = gameStatus === 'playing'
   const isFinished = gameStatus === 'finished'
+
+  // 确定当前操作类型
+  const currentActionType: ActionType | null = useMemo(() => {
+    if (isBidding) return 'bidding'
+    if (isDoubling) return 'doubling'
+    if (isPlaying) return 'playing'
+    return null
+  }, [isBidding, isDoubling, isPlaying])
+
+  // 获取当前回合的玩家（用于显示倒计时）
+  const getCurrentTurnSeat = useCallback(() => {
+    if (!game) return null
+    if (isPlaying) return game.currentTurn
+    if (isDoubling && game.currentDoublingTurn !== null) return game.currentDoublingTurn
+    // 叫分阶段按座位顺序
+    if (isBidding) {
+      const bidCount = bids.length
+      // 第一个叫分的从座位0开始，然后按顺序
+      return bidCount % 3
+    }
+    return null
+  }, [game, isPlaying, isDoubling, isBidding, bids.length])
+
+  const currentTurnSeat = getCurrentTurnSeat()
+
+  // 判断每个玩家是否是当前回合
+  const isLeftPlayerTurn = leftPlayer && currentTurnSeat === leftPlayer.seatIndex
+  const isRightPlayerTurn = rightPlayer && currentTurnSeat === rightPlayer.seatIndex
+  const isMyPlayerTurn = myPlayer && currentTurnSeat === myPlayer.seatIndex
 
   const canPass = isPlaying && isMyTurn() && currentPlay !== null
 
@@ -505,31 +498,30 @@ export function GameTable({ room, getConnection }: GameTableProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-900 to-gray-900 relative overflow-hidden">
+      {/* 横屏提示 */}
+      <OrientationPrompt />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       <div className="absolute inset-0 flex flex-col">
-        <div className="flex justify-between items-start p-4">
-          <div className="flex gap-2 flex-wrap">
+        {/* 顶部工具栏 - 横屏时更紧凑 */}
+        <div className={`flex justify-between items-start ${isMobileLandscape ? 'p-2' : 'p-4'}`}>
+          <div className={`flex gap-2 ${isMobileLandscape ? 'flex-nowrap' : 'flex-wrap'}`}>
             <button
               onClick={handleLeaveRoom}
-              className="px-4 py-2 bg-gray-800/80 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors"
+              className={`${isMobileLandscape ? 'px-2 py-1 text-xs' : 'px-4 py-2 text-sm'} bg-gray-800/80 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors`}
             >
-              ← 离开房间
+              ← 离开
             </button>
 
-            {(isBidding || isDoubling || isPlaying) && !isSpectator && (
+            {(isBidding || isDoubling || isPlaying) && (
               <button
-                onClick={() => {
-                  if (confirm('确定要结束游戏吗？这将强制结束当前游戏，所有玩家将返回等待状态。')) {
-                    handleEndGame()
-                  }
-                }}
-                className="px-4 py-2 bg-red-600/80 hover:bg-red-500 text-white rounded-lg transition-colors font-medium"
+                onClick={() => setShowEndGameConfirm(true)}
+                className={`${isMobileLandscape ? 'px-2 py-1 text-xs' : 'px-4 py-2 text-sm'} bg-red-600/80 hover:bg-red-500 text-white rounded-lg transition-colors font-medium`}
               >
-                结束游戏
+                结束
               </button>
             )}
 
-            {(isDoubling || isPlaying) && !isSpectator && (
+            {(isDoubling || isPlaying) && (
               <TrustControl
                 isTrusted={isTrusted}
                 onToggle={handleSetTrusted}
@@ -541,11 +533,11 @@ export function GameTable({ room, getConnection }: GameTableProps) {
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className={`flex items-center ${isMobileLandscape ? 'gap-2' : 'gap-4'}`}>
             {/* 显示当前倍数 */}
             {(isDoubling || isPlaying) && game && (
-              <div className="px-4 py-2 bg-yellow-600/30 rounded-lg text-yellow-300 font-medium">
-                倍数: {game.multiple * game.doublingMultiple}x
+              <div className={`${isMobileLandscape ? 'px-2 py-1 text-xs' : 'px-4 py-2 text-sm'} bg-yellow-600/30 rounded-lg text-yellow-300 font-medium`}>
+                {game.multiple * game.doublingMultiple}x
               </div>
             )}
 
@@ -559,61 +551,63 @@ export function GameTable({ room, getConnection }: GameTableProps) {
         </div>
 
         <div className="flex-1 flex items-center justify-center">
-          {/* 观战者模式：显示所有玩家手牌 */}
-          {isSpectator && (isBidding || isDoubling || isPlaying) && (
-            <div className="w-full max-w-6xl px-4">
-              <SpectatorHands
-                players={players}
-                allHands={allHands}
-                game={game}
-                bids={bids}
-                doublings={doublings}
+          {/* 显示对手手牌 */}
+          <div className={`relative w-full ${isMobileLandscape ? 'max-w-full h-full' : 'max-w-4xl h-96'}`}>
+            {leftPlayer && (
+              <div className={`absolute ${isMobileLandscape ? 'left-2' : 'left-0'} top-1/2 -translate-y-1/2`}>
+                <OpponentHand
+                  playerName={leftPlayer.playerName}
+                  cardsCount={17}
+                  isLandlord={game?.landlordSeat === leftPlayer.seatIndex}
+                  isTrusted={leftPlayer.isTrusted}
+                  isCurrentTurn={!!isLeftPlayerTurn}
+                  actionType={currentActionType ?? undefined}
+                  turnStartTime={game?.turnStartTime}
+                />
+              </div>
+            )}
+
+            {rightPlayer && (
+              <div className={`absolute ${isMobileLandscape ? 'right-2' : 'right-0'} top-1/2 -translate-y-1/2`}>
+                <OpponentHand
+                  playerName={rightPlayer.playerName}
+                  cardsCount={17}
+                  isLandlord={game?.landlordSeat === rightPlayer.seatIndex}
+                  isTrusted={rightPlayer.isTrusted}
+                  isCurrentTurn={!!isRightPlayerTurn}
+                  actionType={currentActionType ?? undefined}
+                  turnStartTime={game?.turnStartTime}
+                />
+              </div>
+            )}
+
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+              <PlayArea currentPlay={currentPlay} players={players} />
+
+              {isPlaying && game && (
+                <TurnIndicator
+                  currentTurn={game.currentTurn}
+                  myTurn={isMyTurn()}
+                  turnStartTime={game.turnStartTime}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 手牌区域 - 固定在底部 */}
+        <div className={`flex-shrink-0 ${isMobileLandscape ? 'p-2 pb-3' : 'p-4 pb-6'}`}>
+          {/* 当前玩家操作倒计时提示 */}
+          {isMyPlayerTurn && currentActionType && game?.turnStartTime && (
+            <div className="flex justify-center mb-2">
+              <PlayerActionTimer
+                turnStartTime={game.turnStartTime}
+                actionType={currentActionType}
+                isMyTurn={true}
               />
             </div>
           )}
 
-          {/* 普通玩家模式：显示对手手牌 */}
-          {!isSpectator && (
-            <div className="relative w-full max-w-4xl h-96">
-              {leftPlayer && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2">
-                  <OpponentHand
-                    playerName={leftPlayer.playerName}
-                    cardsCount={17}
-                    isLandlord={game?.landlordSeat === leftPlayer.seatIndex}
-                    isTrusted={leftPlayer.isTrusted}
-                  />
-                </div>
-              )}
-
-              {rightPlayer && (
-                <div className="absolute right-0 top-1/2 -translate-y-1/2">
-                  <OpponentHand
-                    playerName={rightPlayer.playerName}
-                    cardsCount={17}
-                    isLandlord={game?.landlordSeat === rightPlayer.seatIndex}
-                    isTrusted={rightPlayer.isTrusted}
-                  />
-                </div>
-              )}
-
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                <PlayArea currentPlay={currentPlay} players={players} />
-
-                {isPlaying && game && (
-                  <TurnIndicator
-                    currentTurn={game.currentTurn}
-                    myTurn={isMyTurn()}
-                    turnStartTime={game.turnStartTime}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 手牌区域 - 固定在底部 */}
-        <div className="flex-shrink-0 p-4 pb-6">
           {/* 叫分阶段 */}
           {isBidding && (
             <BiddingPanel
@@ -624,7 +618,6 @@ export function GameTable({ room, getConnection }: GameTableProps) {
                   conn?.identity &&
                   b.playerIdentity.toHexString() === conn.identity.toHexString()
               )}
-              isSpectator={isSpectator}
             />
           )}
 
@@ -635,12 +628,11 @@ export function GameTable({ room, getConnection }: GameTableProps) {
               isMyTurn={isMyDoublingTurn()}
               hasDoubled={hasDoubled}
               currentMultiple={game.doublingMultiple}
-              isSpectator={isSpectator}
             />
           )}
 
-          {/* 显示手牌（叫分、加倍、出牌阶段都显示）- 观战者不显示手牌 */}
-          {(isBidding || isDoubling || isPlaying) && myHand && !isSpectator && (
+          {/* 显示手牌（叫分、加倍、出牌阶段都显示）*/}
+          {(isBidding || isDoubling || isPlaying) && myHand && (
             <div className="flex flex-col items-center gap-2">
               <PlayerHand
                 cards={myHand.cards}
@@ -652,11 +644,11 @@ export function GameTable({ room, getConnection }: GameTableProps) {
               />
 
               {isPlaying && (
-                <div className="flex gap-4 mt-2">
+                <div className={`flex ${isMobileLandscape ? 'gap-2' : 'gap-4'} mt-2`}>
                   <button
                     onClick={handlePlayCards}
                     disabled={!isMyTurn() || getSelectedCards().length === 0 || isTrusted}
-                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+                    className={`${isMobileLandscape ? 'px-4 py-2 text-sm' : 'px-8 py-3'} bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors`}
                   >
                     {isTrusted ? '托管中...' : '出牌'}
                   </button>
@@ -664,7 +656,7 @@ export function GameTable({ room, getConnection }: GameTableProps) {
                   <button
                     onClick={handlePass}
                     disabled={!canPass || isTrusted}
-                    className="px-8 py-3 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 font-medium rounded-lg transition-colors"
+                    className={`${isMobileLandscape ? 'px-4 py-2 text-sm' : 'px-8 py-3'} bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 font-medium rounded-lg transition-colors`}
                   >
                     不出
                   </button>
@@ -686,6 +678,21 @@ export function GameTable({ room, getConnection }: GameTableProps) {
             onLeave={handleLeaveRoom}
           />
         )}
+
+        {/* 结束游戏确认对话框 */}
+        <ConfirmDialog
+          isOpen={showEndGameConfirm}
+          title="结束游戏"
+          message="确定要结束游戏吗？这将强制结束当前游戏，所有玩家将返回等待状态。"
+          confirmText="结束游戏"
+          cancelText="继续游戏"
+          variant="danger"
+          onConfirm={() => {
+            setShowEndGameConfirm(false)
+            handleEndGame()
+          }}
+          onCancel={() => setShowEndGameConfirm(false)}
+        />
       </div>
     </div>
   )

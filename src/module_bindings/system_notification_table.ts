@@ -10,6 +10,10 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default {
-  roomId: __t.u64(),
-};
+export default __t.row({
+  id: __t.u64().primaryKey(),
+  targetIdentity: __t.identity().name("target_identity"),
+  notificationType: __t.string().name("notification_type"),
+  message: __t.string(),
+  createdAt: __t.timestamp().name("created_at"),
+});

@@ -47,15 +47,15 @@ export function LoginScreen({ onLogin, getConnection }: LoginScreenProps) {
   )
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-900 to-gray-900">
-      <div className="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">🃏 斗地主</h1>
-          <p className="text-gray-400">基于 SpacetimeDB 的实时对战游戏</p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-900 to-gray-900 p-4">
+      <div className="bg-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md">
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">🃏 斗地主</h1>
+          <p className="text-sm sm:text-base text-gray-400">基于 SpacetimeDB 的实时对战游戏</p>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="mb-6">
+          <div className="mb-5 sm:mb-6">
             <label className="block text-gray-300 text-sm font-medium mb-2">
               输入您的昵称
             </label>
@@ -63,7 +63,7 @@ export function LoginScreen({ onLogin, getConnection }: LoginScreenProps) {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+              className="w-full px-4 py-3 sm:py-4 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 text-base"
               placeholder="请输入昵称"
               maxLength={12}
               autoFocus
@@ -79,7 +79,7 @@ export function LoginScreen({ onLogin, getConnection }: LoginScreenProps) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-medium rounded-lg transition-colors"
+            className="w-full py-3 sm:py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-medium rounded-lg transition-colors text-base touch:manipulation"
           >
             {isSubmitting ? '登录中...' : '进入游戏'}
           </button>
