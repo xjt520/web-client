@@ -47,11 +47,11 @@
 /* 手机横屏 (关键) */
 @media (max-height: 500px) and (orientation: landscape) {
   :root {
-    --card-width: 44px;
-    --card-height: 62px;
-    --card-radius: 4px;
-    --fan-radius: 160px;
-    --fan-height: 60px;
+    --card-width: 52px;
+    --card-height: 74px;
+    --card-radius: 5px;
+    --fan-radius: 180px;
+    --fan-height: 75px;
     --opponent-card-width: 28px;
     --opponent-card-height: 40px;
     --button-padding-x: 1rem;
@@ -64,11 +64,11 @@
 /* 超小屏幕横屏 */
 @media (max-height: 400px) and (orientation: landscape) {
   :root {
-    --card-width: 38px;
-    --card-height: 54px;
-    --card-radius: 3px;
-    --fan-radius: 140px;
-    --fan-height: 50px;
+    --card-width: 46px;
+    --card-height: 66px;
+    --card-radius: 4px;
+    --fan-radius: 160px;
+    --fan-height: 65px;
     --opponent-card-width: 24px;
     --opponent-card-height: 34px;
     --button-padding-x: 0.75rem;
@@ -300,6 +300,8 @@ body {
 .fan-card {
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 触摸优化：禁用双击缩放，允许平移 */
+  touch-action: manipulation;
 }
 
 /* 触摸设备禁用 hover 效果 */

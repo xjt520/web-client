@@ -4,13 +4,17 @@ export function useCardSelection() {
   const [selectedCards, setSelectedCards] = useState<Set<number>>(new Set())
 
   const toggleCard = useCallback((card: number) => {
+    console.log('[toggleCard] called with card:', card)
     setSelectedCards((prev) => {
       const newSet = new Set(prev)
       if (newSet.has(card)) {
+        console.log('[toggleCard] removing card:', card)
         newSet.delete(card)
       } else {
+        console.log('[toggleCard] adding card:', card)
         newSet.add(card)
       }
+      console.log('[toggleCard] new selection size:', newSet.size, 'cards:', Array.from(newSet))
       return newSet
     })
   }, [])
@@ -32,7 +36,10 @@ export function useCardSelection() {
     toggleCard,
     clearSelection,
     getSelectedCards,
-    isSelected: (card: number) => selectedCards.has(card),
+    isSelected: (card: number) => {
+      const result = selectedCards.has(card)
+      return result
+    },
     setSelection,
   }
 }

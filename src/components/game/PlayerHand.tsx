@@ -27,23 +27,27 @@ export function PlayerHand({
   const isMouseDownRef = useRef(false)
   const dragStartIndexRef = useRef<number | null>(null)
   const hasDraggedRef = useRef(false)
-  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
+  const touchStartPosRef = useRef<{ x: number; y: number; time: number } | null>(null)
+
+  // 触摸检测阈值（基于全网最佳实践）
+  const TAP_DISTANCE_THRESHOLD = 10  // 10像素距离阈值
+  const TAP_TIME_THRESHOLD = 300     // 300ms时间阈值
 
   // 响应式扇形参数
   const fanConfig = useMemo(() => {
     if (isMobileLandscapeSm) {
       return {
-        radius: 140,
-        maxHeight: 50,
-        containerWidth: Math.min(sortedCards.length * 20 + 60, 400),
+        radius: 160,
+        maxHeight: 65,
+        containerWidth: Math.min(sortedCards.length * 24 + 70, 420),
         marginTop: -10,
       }
     }
     if (isMobileLandscape) {
       return {
-        radius: 160,
-        maxHeight: 60,
-        containerWidth: Math.min(sortedCards.length * 25 + 80, 500),
+        radius: 180,
+        maxHeight: 75,
+        containerWidth: Math.min(sortedCards.length * 28 + 90, 520),
         marginTop: -10,
       }
     }
@@ -122,7 +126,12 @@ export function PlayerHand({
   // 触摸开始
   const handleTouchStart = (index: number, e: React.TouchEvent) => {
     const touch = e.touches[0]
-    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
+    console.log('[TouchStart] cardIndex:', index, 'card:', sortedCards[index])
+    touchStartPosRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now()
+    }
     dragStartIndexRef.current = index
     hasDraggedRef.current = false
   }
@@ -132,6 +141,20 @@ export function PlayerHand({
     if (touchStartPosRef.current === null || dragStartIndexRef.current === null) return
 
     const touch = e.touches[0]
+
+    // 先计算移动距离，只有超过阈值才认为是拖拽意图
+    const distance = Math.hypot(
+      touch.clientX - touchStartPosRef.current.x,
+      touch.clientY - touchStartPosRef.current.y
+    )
+
+    // 如果移动距离小于阈值，不处理（避免误判为拖拽）
+    if (distance < TAP_DISTANCE_THRESHOLD) {
+      console.log('[TouchMove] distance too small:', distance.toFixed(1), '<', TAP_DISTANCE_THRESHOLD)
+      return
+    }
+
+    console.log('[TouchMove] distance OK:', distance.toFixed(1), 'checking drag...')
     const element = document.elementFromPoint(touch.clientX, touch.clientY)
 
     if (element) {
@@ -140,7 +163,10 @@ export function PlayerHand({
         const currentIndex = parseInt(cardElement.getAttribute('data-card-index') || '0')
         const startIndex = dragStartIndexRef.current
 
+        console.log('[TouchMove] currentIndex:', currentIndex, 'startIndex:', startIndex)
+
         if (currentIndex !== startIndex) {
+          console.log('[TouchMove] DRAG DETECTED!')
           hasDraggedRef.current = true
           const minIndex = Math.min(startIndex, currentIndex)
           const maxIndex = Math.max(startIndex, currentIndex)
@@ -154,15 +180,52 @@ export function PlayerHand({
             onDragSelect(newSelection)
           }
         }
+      } else {
+        console.log('[TouchMove] no card element found')
       }
+    } else {
+      console.log('[TouchMove] no element at point')
     }
   }
 
-  // 触摸结束
-  const handleTouchEnd = (card: number) => {
-    if (!hasDraggedRef.current) {
-      onToggleCard(card)
+  // 触摸结束 - 综合距离和时间判断是否为点击
+  const handleTouchEnd = (card: number, e: React.TouchEvent) => {
+    console.log('[TouchEnd] card:', card, 'hasDragged:', hasDraggedRef.current)
+
+    // 阻止后续的鼠标事件（防止 touchend + mouseup 重复触发）
+    e.preventDefault()
+
+    // 如果已经明确拖拽了多张牌，不做处理
+    if (hasDraggedRef.current) {
+      console.log('[TouchEnd] skipped - was drag')
+      touchStartPosRef.current = null
+      dragStartIndexRef.current = null
+      return
     }
+
+    // 没有触发拖拽，执行点击
+    if (touchStartPosRef.current) {
+      const touch = e.changedTouches[0]
+      const distance = Math.hypot(
+        touch.clientX - touchStartPosRef.current.x,
+        touch.clientY - touchStartPosRef.current.y
+      )
+      const duration = Date.now() - touchStartPosRef.current.time
+
+      console.log('[TouchEnd] distance:', distance.toFixed(1), 'duration:', duration)
+      console.log('[TouchEnd] thresholds - distance <', TAP_DISTANCE_THRESHOLD, '|| duration <', TAP_TIME_THRESHOLD)
+
+      // 放宽条件：移动距离 < 阈值 或 时间 < 阈值 都算点击（更宽容的检测）
+      if (distance < TAP_DISTANCE_THRESHOLD || duration < TAP_TIME_THRESHOLD) {
+        console.log('[TouchEnd] ✅ TAP! calling onToggleCard')
+        onToggleCard(card)
+      } else {
+        console.log('[TouchEnd] ❌ NOT a tap')
+      }
+    } else {
+      console.log('[TouchEnd] no touchStartPos!')
+    }
+
     touchStartPosRef.current = null
     dragStartIndexRef.current = null
   }
@@ -204,7 +267,7 @@ export function PlayerHand({
                 onMouseUp={() => handleMouseUp(card)}
                 onTouchStart={(e) => handleTouchStart(index, e)}
                 onTouchMove={handleTouchMove}
-                onTouchEnd={() => handleTouchEnd(card)}
+                onTouchEnd={(e) => handleTouchEnd(card, e)}
               >
                 <CardDisplay
                   card={card}
