@@ -13,6 +13,7 @@ import { ToastContainer } from '../common/ToastContainer'
 import { ConfirmDialog } from '../common/ConfirmDialog'
 import { PlayerActionTimer, ActionType } from './PlayerActionTimer'
 import { OrientationPrompt } from './OrientationPrompt'
+import { FullscreenToggle } from './FullscreenToggle'
 import { useCardSelection } from '../../hooks/useCardSelection'
 import { useToast } from '../../hooks/useToast'
 import { useAiAutoAction } from '../../hooks/useAiAutoAction'
@@ -534,6 +535,9 @@ export function GameTable({ room, getConnection }: GameTableProps) {
           </div>
 
           <div className={`flex items-center ${isMobileLandscape ? 'gap-2' : 'gap-4'}`}>
+            {/* 横屏切换按钮 */}
+            <FullscreenToggle />
+
             {/* 显示当前倍数 */}
             {(isDoubling || isPlaying) && game && (
               <div className={`${isMobileLandscape ? 'px-2 py-1 text-xs' : 'px-4 py-2 text-sm'} bg-yellow-600/30 rounded-lg text-yellow-300 font-medium`}>
