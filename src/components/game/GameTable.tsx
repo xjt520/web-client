@@ -29,7 +29,8 @@ interface GameTableProps {
   getConnection: () => DbConnection | null
   audio?: {
     initialize: () => void
-    playCard: () => void
+    playCard: (cardValue?: number) => void
+    playCombination: (combinationType: string, cards?: number[]) => void
     playBomb: () => void
     playRocket: () => void
     playWin: () => void
@@ -62,6 +63,7 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction }: Ga
   const processedGameResultIds = useRef<Set<string>>(new Set())
   const processedPlayIds = useRef<Set<string>>(new Set())
   const lastTickSecond = useRef<number | null>(null)
+  const lastPlayedCards = useRef<string | null>(null)
 
   const { selectedCards, toggleCard, clearSelection, getSelectedCards, isSelected, setSelection } = useCardSelection()
   const { toasts, removeToast, error, success, warning, info } = useToast()
@@ -357,14 +359,12 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction }: Ga
     try {
       await conn.reducers.playCards({ roomId: room.id, cards: new Uint8Array(cards) })
       clearSelection()
-      // 播放出牌音效
-      audio?.playCard()
     } catch (err) {
       console.error('Play cards error:', err)
       const errorMessage = err instanceof Error ? err.message : String(err)
       error(errorMessage)
     }
-  }, [conn, isMyTurn, getSelectedCards, room.id, clearSelection, audio])
+  }, [conn, isMyTurn, getSelectedCards, room.id, clearSelection])
 
   const handlePass = useCallback(() => {
     if (!conn || !isMyTurn()) return
@@ -553,6 +553,22 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction }: Ga
       }
     }
   }, [isFinished, gameResults, game, conn?.identity, audio])
+
+  // 监听 currentPlay 变化播放出牌音效
+  useEffect(() => {
+    if (!currentPlay || !audio) return
+
+    // 生成唯一标识，避免重复播放
+    const playId = `${currentPlay.playerIdentity.toHexString()}-${Array.from(currentPlay.cards).join(',')}`
+
+    // 如果已经播放过这组牌，跳过
+    if (lastPlayedCards.current === playId) return
+    lastPlayedCards.current = playId
+
+    // 播放对应的牌型音效
+    const cardsArray = Array.from(currentPlay.cards)
+    audio.playCombination(currentPlay.combinationType, cardsArray)
+  }, [currentPlay, audio])
 
   // 倒计时音效
   const { remainingSeconds: myRemainingSeconds } = useTurnTimer({

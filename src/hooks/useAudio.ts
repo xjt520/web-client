@@ -6,7 +6,8 @@ interface UseAudioReturn {
   initialize: () => void
 
   // 音效控制
-  playCard: () => void
+  playCard: (cardValue?: number) => void
+  playCombination: (combinationType: string, cards?: number[]) => void
   playBomb: () => void
   playRocket: () => void
   playWin: () => void
@@ -31,7 +32,14 @@ interface UseAudioReturn {
 // 使用 ref 存储稳定的回调函数
 const stableCallbacks = {
   initialize: () => soundManager.initialize(),
-  playCard: () => soundManager.playCardSound(),
+  playCard: (cardValue?: number) => {
+    if (cardValue !== undefined) {
+      soundManager.playCardSound(cardValue)
+    }
+  },
+  playCombination: (combinationType: string, cards?: number[]) => {
+    soundManager.playCombinationSound(combinationType, cards)
+  },
   playBomb: () => soundManager.playBombSound(),
   playRocket: () => soundManager.playRocketSound(),
   playWin: () => soundManager.playWinSound(),
@@ -78,6 +86,7 @@ export function useAudio(soundEnabled: boolean, musicEnabled: boolean): UseAudio
   return useMemo(() => ({
     initialize: stableCallbacks.initialize,
     playCard: stableCallbacks.playCard,
+    playCombination: stableCallbacks.playCombination,
     playBomb: stableCallbacks.playBomb,
     playRocket: stableCallbacks.playRocket,
     playWin: stableCallbacks.playWin,

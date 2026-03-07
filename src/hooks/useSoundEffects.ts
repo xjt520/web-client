@@ -24,8 +24,10 @@ export function useSoundEffects(soundEnabled: boolean = true): UseSoundEffectsRe
     soundManager.setSoundEnabled(soundEnabled)
   }, [soundEnabled])
 
-  const playCard = useCallback(() => {
-    soundManager.playCardSound()
+  const playCard = useCallback((cardValue?: number) => {
+    if (cardValue !== undefined) {
+      soundManager.playCardSound(cardValue)
+    }
   }, [])
 
   const playBomb = useCallback(() => {
