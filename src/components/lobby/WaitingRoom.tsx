@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import type { DbConnection } from '../../lib/spacetime'
 import type { Room, RoomPlayer, GameResult, Game } from '../../module_bindings/types'
 import type { EventContext } from '../../module_bindings'
+import { useScreenOrientation } from '../../hooks/useScreenOrientation'
 
 interface WaitingRoomProps {
   room: Room
@@ -9,6 +10,8 @@ interface WaitingRoomProps {
 }
 
 export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
+  const { isMobileLandscape, isCompactScreen } = useScreenOrientation()
+  const isCompactLayout = isMobileLandscape || isCompactScreen
   const [players, setPlayers] = useState<RoomPlayer[]>([])
   const [gameResults, setGameResults] = useState<GameResult[]>([])
   const [game, setGame] = useState<Game | null>(null)
@@ -296,13 +299,13 @@ export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
           </div>
         )}
 
-        <div className="mb-4 sm:mb-6">
-          <div className="flex justify-between text-xs sm:text-sm text-gray-400 mb-2">
+        <div className={`${isCompactLayout ? 'mb-2' : 'mb-4 sm:mb-6'}`}>
+          <div className={`flex justify-between ${isCompactLayout ? 'text-xs mb-1' : 'text-xs sm:text-sm text-gray-400 mb-2'}`}>
             <span>玩家 ({normalPlayers.length}/3)</span>
             {isOwner && <span className="text-yellow-400">房主</span>}
           </div>
 
-          <div className="space-y-2 sm:space-y-3">
+          <div className={`grid ${isCompactLayout ? 'grid-cols-3 gap-1.5' : 'space-y-2 sm:space-y-3'}`}>
             {normalPlayers.map((player) => {
               const isMe = conn?.identity && player.playerIdentity.toHexString() === conn.identity.toHexString()
               const isPlayerOwner = player.playerIdentity.toHexString() === room.owner.toHexString()
@@ -310,21 +313,21 @@ export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
               return (
                 <div
                   key={player.playerIdentity.toHexString()}
-                  className={`flex items-center justify-between p-2 sm:p-3 rounded-lg ${
+                  className={`flex items-center justify-between ${isCompactLayout ? 'p-1.5 rounded' : 'p-2 sm:p-3 rounded-lg'} ${
                     isMe ? 'bg-blue-900/50 border border-blue-500' : player.isAi ? 'bg-purple-900/30 border border-purple-500' : 'bg-gray-700'
                   }`}
                 >
-                  <div className="flex items-center gap-1 sm:gap-2 min-w-0">
-                    {player.isAi && <span className="text-purple-400 text-sm sm:text-base">🤖</span>}
-                    <span className="text-white text-sm sm:text-base truncate">{player.playerName}</span>
-                    {isPlayerOwner && <span className="text-yellow-400 text-xs sm:text-sm">👑</span>}
-                    {isMe && <span className="text-blue-400 text-xs sm:text-sm">(我)</span>}
+                  <div className="flex items-center gap-1 min-w-0">
+                    {player.isAi && <span className="text-purple-400 text-xs">🤖</span>}
+                    <span className={`text-white ${isCompactLayout ? 'text-xs' : 'text-sm sm:text-base'} truncate`}>{player.playerName}</span>
+                    {isPlayerOwner && <span className="text-yellow-400 text-xs">👑</span>}
+                    {isMe && <span className="text-blue-400 text-xs">(我)</span>}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center shrink-0">
                     {player.ready ? (
-                      <span className="text-green-400 text-xs sm:text-sm">✓ 已准备</span>
+                      <span className="text-green-400 text-xs">✓</span>
                     ) : (
-                      <span className="text-gray-500 text-xs sm:text-sm">未准备</span>
+                      <span className="text-gray-500 text-xs">○</span>
                     )}
                   </div>
                 </div>
@@ -334,28 +337,28 @@ export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
             {Array.from({ length: 3 - normalPlayers.length }).map((_, i) => (
               <div
                 key={`empty-${i}`}
-                className="flex items-center justify-center p-2 sm:p-3 rounded-lg bg-gray-700/50 border border-dashed border-gray-600"
+                className={`flex items-center justify-center ${isCompactLayout ? 'p-1.5' : 'p-2 sm:p-3'} rounded-lg bg-gray-700/50 border border-dashed border-gray-600`}
               >
-                <span className="text-gray-500 text-xs sm:text-sm">等待玩家加入...</span>
+                <span className={`text-gray-500 ${isCompactLayout ? 'text-xs' : 'text-xs sm:text-sm'}`}>等待...</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 sm:gap-3">
+        <div className={`flex ${isCompactLayout ? 'flex-row gap-2' : 'flex-col gap-2 sm:gap-3'}`}>
           {/* 游戏结束后显示重新开始按钮 */}
           {isAfterGame ? (
             <>
               {isOwner && (
                 <button
                   onClick={handleRestartGame}
-                  className="w-full py-3 sm:py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors text-sm sm:text-base touch:manipulation"
+                  className={`flex-1 ${isCompactLayout ? 'py-2 text-xs' : 'py-3 sm:py-4 text-sm sm:text-base'} bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors touch:manipulation`}
                 >
                   再来一局
                 </button>
               )}
               {!isOwner && (
-                <p className="text-center text-gray-400 text-xs sm:text-sm">等待房主开始新一局...</p>
+                <p className={`text-center text-gray-400 ${isCompactLayout ? 'text-xs' : 'text-xs sm:text-sm'}`}>等待房主...</p>
               )}
             </>
           ) : (
@@ -363,7 +366,7 @@ export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
               {currentPlayer && !currentPlayer.ready && (
                 <button
                   onClick={handleReady}
-                  className="w-full py-3 sm:py-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors text-sm sm:text-base touch:manipulation"
+                  className={`flex-1 ${isCompactLayout ? 'py-2 text-xs' : 'py-3 sm:py-4 text-sm sm:text-base'} bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors touch:manipulation`}
                 >
                   准备
                 </button>
@@ -372,7 +375,7 @@ export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
               {currentPlayer && currentPlayer.ready && (
                 <button
                   onClick={handleReady}
-                  className="w-full py-3 sm:py-4 bg-gray-600 hover:bg-gray-500 text-white font-medium rounded-lg transition-colors text-sm sm:text-base touch:manipulation"
+                  className={`flex-1 ${isCompactLayout ? 'py-2 text-xs' : 'py-3 sm:py-4 text-sm sm:text-base'} bg-gray-600 hover:bg-gray-500 text-white font-medium rounded-lg transition-colors touch:manipulation`}
                 >
                   取消准备
                 </button>
@@ -382,17 +385,17 @@ export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
                 <button
                   onClick={handleStartGame}
                   disabled={!canStart}
-                  className={`w-full py-3 sm:py-4 font-medium rounded-lg transition-colors text-sm sm:text-base touch:manipulation ${
+                  className={`flex-1 ${isCompactLayout ? 'py-2 text-xs' : 'py-3 sm:py-4 text-sm sm:text-base'} font-medium rounded-lg transition-colors touch:manipulation ${
                     canStart
                       ? 'bg-blue-600 hover:bg-blue-700 text-white'
                       : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   }`}
                 >
                   {normalPlayers.length < 3
-                    ? `等待玩家 (${normalPlayers.length}/3)`
+                    ? `${normalPlayers.length}/3`
                     : !allReady
-                    ? '等待所有玩家准备'
-                    : '开始游戏'}
+                    ? '等待准备'
+                    : '开始'}
                 </button>
               )}
             </>
@@ -400,9 +403,9 @@ export function WaitingRoom({ room, getConnection }: WaitingRoomProps) {
 
           <button
             onClick={handleLeaveRoom}
-            className="w-full py-3 sm:py-4 bg-red-600/50 hover:bg-red-600 text-red-200 font-medium rounded-lg transition-colors text-sm sm:text-base touch:manipulation"
+            className={`${isCompactLayout ? 'py-2 px-3 text-xs' : 'w-full py-3 sm:py-4 text-sm sm:text-base'} bg-red-600/50 hover:bg-red-600 text-red-200 font-medium rounded-lg transition-colors touch:manipulation`}
           >
-            离开房间
+            {isCompactLayout ? '离开' : '离开房间'}
           </button>
         </div>
       </div>

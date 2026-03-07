@@ -5,13 +5,38 @@ interface UserProfileSummaryProps {
   profile: UserProfile | null
   user: User | null
   onClick?: () => void
+  compact?: boolean
 }
 
-export function UserProfileSummary({ profile, user, onClick }: UserProfileSummaryProps) {
+export function UserProfileSummary({ profile, user, onClick, compact = false }: UserProfileSummaryProps) {
   if (!user) return null
 
   const avatarEmoji = profile?.avatarEmoji || '😀'
   const levelInfo = calculateLevel(user.score)
+
+  if (compact) {
+    return (
+      <button
+        onClick={onClick}
+        className="flex items-center gap-2 bg-gray-800/80 hover:bg-gray-700/80 px-2 py-1 rounded-lg transition-colors"
+      >
+        <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center text-lg">
+          {avatarEmoji}
+        </div>
+        <div className="text-left">
+          <div className="flex items-center gap-1.5">
+            <span className="text-white text-sm font-medium">{user.name}</span>
+            <span className={`text-xs font-bold ${getLevelColor(levelInfo.level)}`}>
+              Lv.{levelInfo.level}
+            </span>
+          </div>
+          <div className="text-xs text-gray-400">
+            {formatScore(user.score)}分
+          </div>
+        </div>
+      </button>
+    )
+  }
 
   return (
     <button

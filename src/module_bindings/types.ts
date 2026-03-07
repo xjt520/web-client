@@ -146,6 +146,7 @@ export const PlayerHand = __t.object("PlayerHand", {
 export type PlayerHand = __Infer<typeof PlayerHand>;
 
 export const RateLimit = __t.object("RateLimit", {
+  id: __t.u64(),
   identity: __t.identity(),
   actionType: __t.string(),
   count: __t.u32(),

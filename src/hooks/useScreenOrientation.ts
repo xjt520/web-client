@@ -6,6 +6,8 @@ interface ScreenOrientation {
   isMobileLandscape: boolean  // max-height <= 500px 且横屏
   isMobilePortrait: boolean   // max-width <= 640px 且竖屏
   isMobileLandscapeSm: boolean // max-height <= 400px 且横屏
+  isSmallScreen: boolean      // 高度 <= 768px（小屏幕电脑）
+  isCompactScreen: boolean    // 高度 <= 600px（紧凑屏幕）
   isTouch: boolean            // 触摸设备
   screenWidth: number
   screenHeight: number
@@ -13,7 +15,7 @@ interface ScreenOrientation {
 
 /**
  * 检测屏幕方向和设备类型的 Hook
- * 用于移动端横屏适配
+ * 用于移动端横屏适配和小屏幕电脑适配
  */
 export function useScreenOrientation(): ScreenOrientation {
   const [state, setState] = useState<ScreenOrientation>(() => {
@@ -24,6 +26,8 @@ export function useScreenOrientation(): ScreenOrientation {
         isMobileLandscape: false,
         isMobilePortrait: false,
         isMobileLandscapeSm: false,
+        isSmallScreen: false,
+        isCompactScreen: false,
         isTouch: false,
         screenWidth: 1024,
         screenHeight: 768,
@@ -40,6 +44,8 @@ export function useScreenOrientation(): ScreenOrientation {
       isMobileLandscape: width > height && height <= 500,
       isMobilePortrait: width <= 640 && width <= height,
       isMobileLandscapeSm: width > height && height <= 400,
+      isSmallScreen: height <= 768,
+      isCompactScreen: height <= 600,
       isTouch,
       screenWidth: width,
       screenHeight: height,
@@ -58,6 +64,8 @@ export function useScreenOrientation(): ScreenOrientation {
         isMobileLandscape: width > height && height <= 500,
         isMobilePortrait: width <= 640 && width <= height,
         isMobileLandscapeSm: width > height && height <= 400,
+        isSmallScreen: height <= 768,
+        isCompactScreen: height <= 600,
         isTouch,
         screenWidth: width,
         screenHeight: height,

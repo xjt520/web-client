@@ -10,6 +10,7 @@ import { useMatchQueue } from '../../hooks/useMatchQueue'
 import { useSettings } from '../../hooks/useSettings'
 import { useGame } from '../../hooks/useGame'
 import { useMatchHistory } from '../../hooks/useMatchHistory'
+import { useScreenOrientation } from '../../hooks/useScreenOrientation'
 import { ProfileModal } from '../profile/ProfileModal'
 import { SettingsModal } from '../settings/SettingsModal'
 import { RulesModal } from '../rules/RulesModal'
@@ -36,6 +37,12 @@ export function LobbyLayout({ onLogout, getConnection }: LobbyLayoutProps) {
   const { updateSettings } = useSettings(getConnection)
   const { currentRoom, gameStatus } = useGame(getConnection)
   const { matchRecords, scoreHistory } = useMatchHistory(getConnection)
+
+  // 屏幕方向检测
+  const { isMobileLandscape, isCompactScreen } = useScreenOrientation()
+
+  // 紧凑布局模式（移动端横屏或小屏幕）
+  const isCompactLayout = isMobileLandscape || isCompactScreen
 
   // 处理匹配成功
   useEffect(() => {
@@ -139,29 +146,30 @@ export function LobbyLayout({ onLogout, getConnection }: LobbyLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-900 to-gray-900">
+    <div className={`min-h-screen bg-gradient-to-br from-green-900 to-gray-900 ${isCompactLayout ? 'overflow-auto' : ''}`}>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* 头部 */}
       <header className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700">
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4 flex justify-between items-center">
-          <h1 className="text-xl sm:text-2xl font-bold text-white">🃏 斗地主</h1>
+        <div className={`max-w-6xl mx-auto flex justify-between items-center ${isCompactLayout ? 'px-2 py-1.5' : 'px-3 sm:px-4 py-3 sm:py-4'}`}>
+          <h1 className={`${isCompactLayout ? 'text-base' : 'text-xl sm:text-2xl'} font-bold text-white`}>🃏 斗地主</h1>
 
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className={`flex items-center ${isCompactLayout ? 'gap-1.5' : 'gap-2 sm:gap-4'}`}>
             {/* 用户信息 */}
             <UserProfileSummary
               profile={profile}
               user={user}
               onClick={() => setShowProfileModal(true)}
+              compact={isCompactLayout}
             />
 
             {/* 规则按钮 */}
             <button
               onClick={() => setShowRulesModal(true)}
-              className="p-2 sm:px-3 sm:py-2 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors touch:manipulation"
+              className={`${isCompactLayout ? 'p-1.5' : 'p-2 sm:px-3 sm:py-2'} bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors touch:manipulation`}
               title="游戏规则"
             >
-              <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`${isCompactLayout ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </button>
@@ -169,10 +177,10 @@ export function LobbyLayout({ onLogout, getConnection }: LobbyLayoutProps) {
             {/* 设置按钮 */}
             <button
               onClick={() => setShowSettingsModal(true)}
-              className="p-2 sm:px-3 sm:py-2 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors touch:manipulation"
+              className={`${isCompactLayout ? 'p-1.5' : 'p-2 sm:px-3 sm:py-2'} bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors touch:manipulation`}
               title="设置"
             >
-              <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`${isCompactLayout ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
@@ -181,7 +189,7 @@ export function LobbyLayout({ onLogout, getConnection }: LobbyLayoutProps) {
             {/* 退出按钮 */}
             <button
               onClick={handleLogout}
-              className="px-3 py-2 sm:px-4 sm:py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors text-sm sm:text-base touch:manipulation"
+              className={`${isCompactLayout ? 'px-2 py-1 text-xs' : 'px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base'} bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors touch:manipulation`}
             >
               退出
             </button>
@@ -190,11 +198,11 @@ export function LobbyLayout({ onLogout, getConnection }: LobbyLayoutProps) {
       </header>
 
       {/* 主内容 */}
-      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+      <main className={`max-w-6xl mx-auto ${isCompactLayout ? 'px-2 py-2' : 'px-3 sm:px-4 py-4 sm:py-8'}`}>
         {/* 匹配区域 */}
-        <div className="mb-6 sm:mb-8">
-          <div className="bg-gray-800/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-700">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className={`${isCompactLayout ? 'mb-3' : 'mb-6 sm:mb-8'}`}>
+          <div className={`bg-gray-800/50 border border-gray-700 ${isCompactLayout ? 'rounded-lg p-2' : 'rounded-xl sm:rounded-2xl p-4 sm:p-6'}`}>
+            <div className={`grid ${isCompactLayout ? 'grid-cols-3 gap-2' : 'grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4'}`}>
               {/* 随机匹配 */}
               <QuickMatchButton
                 onJoinQueue={joinQueue}
@@ -203,6 +211,7 @@ export function LobbyLayout({ onLogout, getConnection }: LobbyLayoutProps) {
                 matchedRoomId={matchedRoomId}
                 error={matchError}
                 onLeaveQueue={leaveQueue}
+                compact={isCompactLayout}
               />
 
               {/* 创建房间 */}
@@ -210,7 +219,8 @@ export function LobbyLayout({ onLogout, getConnection }: LobbyLayoutProps) {
                 onClick={() => checkAndCreateRoom('create')}
                 disabled={isMatching}
                 className={`
-                  w-full py-4 sm:py-4 px-4 sm:px-6 rounded-xl font-bold text-base sm:text-lg
+                  w-full ${isCompactLayout ? 'py-2 px-3 rounded-lg text-sm' : 'py-4 sm:py-4 px-4 sm:px-6 rounded-xl text-base sm:text-lg'}
+                  font-bold
                   transition-all duration-200 transform
                   ${isMatching
                     ? 'bg-gray-600 cursor-not-allowed'
@@ -219,8 +229,8 @@ export function LobbyLayout({ onLogout, getConnection }: LobbyLayoutProps) {
                   text-white shadow-lg touch:manipulation
                 `}
               >
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <span className="flex items-center justify-center gap-1.5">
+                  <svg className={`${isCompactLayout ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   好友建房
@@ -232,7 +242,8 @@ export function LobbyLayout({ onLogout, getConnection }: LobbyLayoutProps) {
                 onClick={() => checkAndCreateRoom('ai')}
                 disabled={isMatching}
                 className={`
-                  w-full py-4 sm:py-4 px-4 sm:px-6 rounded-xl font-bold text-base sm:text-lg
+                  w-full ${isCompactLayout ? 'py-2 px-3 rounded-lg text-sm' : 'py-4 sm:py-4 px-4 sm:px-6 rounded-xl text-base sm:text-lg'}
+                  font-bold
                   transition-all duration-200 transform
                   ${isMatching
                     ? 'bg-gray-600 cursor-not-allowed'
@@ -241,8 +252,8 @@ export function LobbyLayout({ onLogout, getConnection }: LobbyLayoutProps) {
                   text-white shadow-lg touch:manipulation
                 `}
               >
-                <span className="flex items-center justify-center gap-2">
-                  <span className="text-xl">🤖</span>
+                <span className="flex items-center justify-center gap-1.5">
+                  <span className={isCompactLayout ? 'text-base' : 'text-xl'}>🤖</span>
                   人机对战
                 </span>
               </button>
@@ -251,13 +262,14 @@ export function LobbyLayout({ onLogout, getConnection }: LobbyLayoutProps) {
         </div>
 
         {/* 房间列表 */}
-        <div className="flex justify-between items-center mb-4 sm:mb-6">
-          <h2 className="text-lg sm:text-xl text-white">房间列表</h2>
+        <div className={`flex justify-between items-center ${isCompactLayout ? 'mb-2' : 'mb-4 sm:mb-6'}`}>
+          <h2 className={`${isCompactLayout ? 'text-sm' : 'text-lg sm:text-xl'} text-white`}>房间列表</h2>
         </div>
 
         <RoomList
           getConnection={getConnection}
           onError={handleError}
+          compact={isCompactLayout}
         />
       </main>
 

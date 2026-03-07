@@ -5,13 +5,13 @@
 /* ==================== CSS 变量系统 ==================== */
 :root {
   /* 默认桌面尺寸 */
-  --card-width: 56px;
-  --card-height: 80px;
+  --card-width: 60px;
+  --card-height: 86px;
   --card-radius: 6px;
-  --fan-radius: 280px;
-  --fan-height: 120px;
-  --opponent-card-width: 40px;
-  --opponent-card-height: 56px;
+  --fan-radius: 300px;
+  --fan-height: 130px;
+  --opponent-card-width: 44px;
+  --opponent-card-height: 62px;
   --button-padding-x: 2rem;
   --button-padding-y: 0.75rem;
   --button-font-size: 1rem;

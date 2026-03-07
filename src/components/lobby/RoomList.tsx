@@ -6,9 +6,10 @@ import type { EventContext } from '../../module_bindings'
 interface RoomListProps {
   getConnection: () => DbConnection | null
   onError: (error: string) => void
+  compact?: boolean
 }
 
-export function RoomList({ getConnection, onError }: RoomListProps) {
+export function RoomList({ getConnection, onError, compact = false }: RoomListProps) {
   const [rooms, setRooms] = useState<Room[]>([])
   const [players, setPlayers] = useState<RoomPlayer[]>([])
   const [joiningRoom, setJoiningRoom] = useState<bigint | null>(null)
@@ -123,23 +124,23 @@ export function RoomList({ getConnection, onError }: RoomListProps) {
 
   if (waitingRooms.length === 0 && ongoingRooms.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="text-gray-400 text-lg mb-2">暂无可用房间</div>
+      <div className={`text-center ${compact ? 'py-6' : 'py-12'}`}>
+        <div className={`text-gray-400 ${compact ? 'text-base' : 'text-lg'} mb-2`}>暂无可用房间</div>
         <p className="text-gray-500 text-sm">点击"创建房间"开始新游戏</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-${compact ? '3' : '6'}`}>
       {/* 正在进行的游戏 */}
       {ongoingRooms.length > 0 && (
         <div>
-          <h3 className="text-gray-400 text-sm mb-3 flex items-center gap-2">
+          <h3 className={`text-gray-400 ${compact ? 'text-xs mb-2' : 'text-sm mb-3'} flex items-center gap-2`}>
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
             正在进行的游戏
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className={`grid ${compact ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'}`}>
             {ongoingRooms.map((room) => {
               const roomPlayers = getRoomPlayers(room.id)
               const isAiRoom = room.isAiMode
@@ -147,31 +148,31 @@ export function RoomList({ getConnection, onError }: RoomListProps) {
               return (
                 <div
                   key={room.id.toString()}
-                  className={`bg-gray-800 rounded-lg p-4 border ${
+                  className={`bg-gray-800 ${compact ? 'rounded p-2' : 'rounded-lg p-4'} border ${
                     isAiRoom ? 'border-purple-600/50' : 'border-gray-700'
                   } opacity-90`}
                 >
-                  <div className="flex justify-between items-start mb-3">
+                  <div className={`flex justify-between items-start ${compact ? 'mb-2' : 'mb-3'}`}>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-medium text-white">{room.name}</h3>
+                      <h3 className={`${compact ? 'text-sm' : 'text-lg'} font-medium text-white`}>{room.name}</h3>
                       {isAiRoom && (
-                        <span className="px-2 py-0.5 bg-purple-600/30 text-purple-300 text-xs rounded-full">
-                          🤖 人机
+                        <span className={`px-1.5 py-0.5 bg-purple-600/30 text-purple-300 ${compact ? 'text-xs' : 'text-xs'} rounded-full`}>
+                          🤖
                         </span>
                       )}
                     </div>
-                    <span className="px-2 py-1 rounded text-xs bg-yellow-900/50 text-yellow-300">
-                      {room.status === 'bidding' ? '叫分中' : room.status === 'doubling' ? '加倍中' : '游戏中'}
+                    <span className={`px-1.5 py-0.5 rounded text-xs bg-yellow-900/50 text-yellow-300`}>
+                      {room.status === 'bidding' ? '叫分' : room.status === 'doubling' ? '加倍' : '游戏中'}
                     </span>
                   </div>
 
-                  <div className="mb-4">
-                    <p className="text-gray-400 text-sm mb-2">玩家:</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className={`${compact ? 'mb-2' : 'mb-4'}`}>
+                    <p className={`text-gray-400 ${compact ? 'text-xs mb-1' : 'text-sm mb-2'}`}>玩家:</p>
+                    <div className="flex flex-wrap gap-1">
                       {roomPlayers.map((p) => (
                         <span
                           key={`${p.roomId}-${p.playerIdentity.toHexString()}`}
-                          className={`px-2 py-1 rounded text-sm ${
+                          className={`px-1.5 py-0.5 rounded ${compact ? 'text-xs' : 'text-sm'} ${
                             p.isAi
                               ? 'bg-purple-900/30 text-purple-300'
                               : 'bg-gray-700 text-gray-300'
@@ -193,8 +194,8 @@ export function RoomList({ getConnection, onError }: RoomListProps) {
       {/* 等待中的房间 */}
       {waitingRooms.length > 0 && (
         <div>
-          <h3 className="text-gray-400 text-sm mb-3">等待中的房间</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <h3 className={`text-gray-400 ${compact ? 'text-xs mb-2' : 'text-sm mb-3'}`}>等待中的房间</h3>
+          <div className={`grid ${compact ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'}`}>
             {waitingRooms.map((room) => {
               const roomPlayers = getRoomPlayers(room.id)
               const isFull = roomPlayers.length >= 3
@@ -203,21 +204,21 @@ export function RoomList({ getConnection, onError }: RoomListProps) {
               return (
                 <div
                   key={room.id.toString()}
-                  className={`bg-gray-800 rounded-lg p-4 border ${
+                  className={`bg-gray-800 ${compact ? 'rounded p-2' : 'rounded-lg p-4'} border ${
                     isAiRoom ? 'border-purple-600/50' : 'border-gray-700'
                   }`}
                 >
-                  <div className="flex justify-between items-start mb-3">
+                  <div className={`flex justify-between items-start ${compact ? 'mb-2' : 'mb-3'}`}>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-medium text-white">{room.name}</h3>
+                      <h3 className={`${compact ? 'text-sm' : 'text-lg'} font-medium text-white`}>{room.name}</h3>
                       {isAiRoom && (
-                        <span className="px-2 py-0.5 bg-purple-600/30 text-purple-300 text-xs rounded-full">
-                          🤖 人机
+                        <span className={`px-1.5 py-0.5 bg-purple-600/30 text-purple-300 ${compact ? 'text-xs' : 'text-xs'} rounded-full`}>
+                          🤖
                         </span>
                       )}
                     </div>
                     <span
-                      className={`px-2 py-1 rounded text-xs ${
+                      className={`px-1.5 py-0.5 rounded text-xs ${
                         isFull
                           ? 'bg-red-900/50 text-red-300'
                           : 'bg-green-900/50 text-green-300'
@@ -227,13 +228,13 @@ export function RoomList({ getConnection, onError }: RoomListProps) {
                     </span>
                   </div>
 
-                  <div className="mb-4">
-                    <p className="text-gray-400 text-sm mb-2">玩家:</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className={`${compact ? 'mb-2' : 'mb-4'}`}>
+                    <p className={`text-gray-400 ${compact ? 'text-xs mb-1' : 'text-sm mb-2'}`}>玩家:</p>
+                    <div className="flex flex-wrap gap-1">
                       {roomPlayers.map((p) => (
                         <span
                           key={`${p.roomId}-${p.playerIdentity.toHexString()}`}
-                          className={`px-2 py-1 rounded text-sm ${
+                          className={`px-1.5 py-0.5 rounded ${compact ? 'text-xs' : 'text-sm'} ${
                             p.isAi
                               ? 'bg-purple-900/30 text-purple-300'
                               : 'bg-gray-700 text-gray-300'
@@ -252,7 +253,7 @@ export function RoomList({ getConnection, onError }: RoomListProps) {
                   <button
                     onClick={() => handleJoinRoom(room.id)}
                     disabled={isFull || joiningRoom !== null || (isAiRoom && roomPlayers.some(p => !p.isAi))}
-                    className={`w-full py-2 rounded-lg font-medium transition-colors ${
+                    className={`w-full ${compact ? 'py-1.5 text-xs' : 'py-2'} rounded-lg font-medium transition-colors ${
                       isFull || (isAiRoom && roomPlayers.some(p => !p.isAi))
                         ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                         : isAiRoom
@@ -266,7 +267,7 @@ export function RoomList({ getConnection, onError }: RoomListProps) {
                         ? '游戏中'
                         : isFull
                           ? '已满'
-                          : '加入房间'}
+                          : '加入'}
                   </button>
                 </div>
               )

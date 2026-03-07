@@ -6,7 +6,6 @@ export default defineConfig(({ mode }) => {
   const isSingleFile = mode === 'singlefile'
 
   return {
-    base: '/',
     plugins: [
       react(),
       // 仅在 singlefile 模式下启用单文件插件

@@ -8,6 +8,7 @@ interface QuickMatchButtonProps {
   matchedRoomId: bigint | null
   error: string | null
   onLeaveQueue: () => Promise<void>
+  compact?: boolean
 }
 
 export function QuickMatchButton({
@@ -17,6 +18,7 @@ export function QuickMatchButton({
   matchedRoomId,
   error,
   onLeaveQueue,
+  compact = false,
 }: QuickMatchButtonProps) {
   const [showModal, setShowModal] = useState(false)
 
@@ -33,7 +35,8 @@ export function QuickMatchButton({
         onClick={handleClick}
         disabled={isMatching}
         className={`
-          w-full py-4 px-6 rounded-xl font-bold text-lg
+          w-full ${compact ? 'py-2 px-3 rounded-lg text-sm' : 'py-4 px-6 rounded-xl text-lg'}
+          font-bold
           transition-all duration-200 transform
           ${isMatching
             ? 'bg-gray-600 cursor-not-allowed'
@@ -43,8 +46,8 @@ export function QuickMatchButton({
         `}
       >
         {isMatching ? (
-          <span className="flex items-center justify-center gap-2">
-            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+          <span className="flex items-center justify-center gap-1.5">
+            <svg className={`animate-spin ${compact ? 'h-4 w-4' : 'h-5 w-5'}`} viewBox="0 0 24 24">
               <circle
                 className="opacity-25"
                 cx="12"
@@ -63,8 +66,8 @@ export function QuickMatchButton({
             匹配中...
           </span>
         ) : (
-          <span className="flex items-center justify-center gap-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <span className="flex items-center justify-center gap-1.5">
+            <svg className={`${compact ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"

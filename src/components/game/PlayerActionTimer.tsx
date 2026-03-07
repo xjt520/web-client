@@ -1,4 +1,5 @@
 import { useTurnTimer, TURN_TIMEOUT_SECONDS } from '../../hooks/useTurnTimer'
+import { useScreenOrientation } from '../../hooks/useScreenOrientation'
 import type { Timestamp } from 'spacetimedb'
 
 export type ActionType = 'bidding' | 'doubling' | 'playing'
@@ -50,6 +51,9 @@ export function PlayerActionTimer({
   actionType,
   isMyTurn,
 }: PlayerActionTimerProps) {
+  const { isMobileLandscape, isCompactScreen } = useScreenOrientation()
+  const isCompact = isMobileLandscape || isCompactScreen
+
   const { remainingSeconds, progress } = useTurnTimer({
     turnStartTime,
     enabled: true,
@@ -88,7 +92,8 @@ export function PlayerActionTimer({
   return (
     <div
       className={`
-        flex items-center gap-2 px-3 py-2 rounded-lg border-2
+        flex items-center gap-1.5 rounded-lg border-2
+        ${isCompact ? 'px-2 py-1' : 'px-3 py-2'}
         ${getBgColor()} ${getBorderColor()}
         ${isUrgent ? 'animate-pulse' : ''}
         shadow-lg
@@ -96,22 +101,22 @@ export function PlayerActionTimer({
     >
       {/* 闹钟图标 */}
       <div className="flex items-center">
-        <span className={`text-lg ${isUrgent ? 'animate-bounce' : ''}`}>
+        <span className={`${isCompact ? 'text-base' : 'text-lg'} ${isUrgent ? 'animate-bounce' : ''}`}>
           ⏰
         </span>
       </div>
 
       {/* 操作图标和文字 */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-base">{getActionIcon(actionType)}</span>
-        <span className={`text-sm font-medium ${getTextColor()}`}>
+      <div className="flex items-center gap-1">
+        <span className={isCompact ? 'text-sm' : 'text-base'}>{getActionIcon(actionType)}</span>
+        <span className={`font-medium ${isCompact ? 'text-xs' : 'text-sm'} ${getTextColor()}`}>
           {isMyTurn ? '请' : ''}{getActionText(actionType)}
           {isMyTurn ? '' : '...'}
         </span>
       </div>
 
       {/* 倒计时进度条 */}
-      <div className="w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+      <div className={`${isCompact ? 'w-10 h-1' : 'w-16 h-1.5'} bg-gray-700 rounded-full overflow-hidden`}>
         <div
           className={`h-full ${getProgressColor()} transition-all duration-200`}
           style={{ width: `${progress * 100}%` }}

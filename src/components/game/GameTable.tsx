@@ -4,22 +4,24 @@ import { OpponentHand } from './OpponentHand'
 import { PlayArea } from './PlayArea'
 import { BiddingPanel } from './BiddingPanel'
 import { DoublingPanel } from './DoublingPanel'
-import { TurnIndicator } from './TurnIndicator'
 import { LandlordCards } from './LandlordCards'
 import { GameResultModal } from './GameResultModal'
 import { TrustControl } from './TrustControl'
 import { PlayHistory } from './PlayHistory'
 import { ToastContainer } from '../common/ToastContainer'
 import { ConfirmDialog } from '../common/ConfirmDialog'
-import { PlayerActionTimer, ActionType } from './PlayerActionTimer'
+import { ActionType } from './PlayerActionTimer'
 import { OrientationPrompt } from './OrientationPrompt'
 import { FullscreenToggle } from './FullscreenToggle'
 import { useCardSelection } from '../../hooks/useCardSelection'
 import { useToast } from '../../hooks/useToast'
 import { useAiAutoAction } from '../../hooks/useAiAutoAction'
 import { useScreenOrientation } from '../../hooks/useScreenOrientation'
+import { useGameDuration, formatDuration, getGameStatusText } from '../../hooks/useGameDuration'
+import { useTurnTimer } from '../../hooks/useTurnTimer'
 import type { DbConnection } from '../../lib/spacetime'
 import type { Room, Game, PlayerHand as PlayerHandType, RoomPlayer, CurrentPlay, LandlordCards as LandlordCardsType, Bid, Doubling, GameResult, Play } from '../../module_bindings/types'
+import type { Timestamp } from 'spacetimedb'
 import type { EventContext } from '../../module_bindings'
 
 interface GameTableProps {
@@ -50,7 +52,10 @@ export function GameTable({ room, getConnection }: GameTableProps) {
   const conn = getConnection()
 
   // 屏幕方向检测
-  const { isMobileLandscape } = useScreenOrientation()
+  const { isMobileLandscape, isCompactScreen } = useScreenOrientation()
+
+  // 紧凑布局模式（移动端横屏或小屏幕电脑）
+  const isCompactLayout = isMobileLandscape || isCompactScreen
 
   useEffect(() => {
     if (!conn) return
@@ -498,17 +503,17 @@ export function GameTable({ room, getConnection }: GameTableProps) {
   )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-900 to-gray-900 relative overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-green-900 to-gray-900 relative overflow-hidden">
       {/* 横屏提示 */}
       <OrientationPrompt />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
-      <div className="absolute inset-0 flex flex-col">
-        {/* 顶部工具栏 - 横屏时更紧凑 */}
-        <div className={`flex justify-between items-start ${isMobileLandscape ? 'p-2' : 'p-4'}`}>
-          <div className={`flex gap-2 ${isMobileLandscape ? 'flex-nowrap' : 'flex-wrap'}`}>
+      <div className="h-full flex flex-col overflow-hidden">
+        {/* 顶部工具栏 - 紧凑布局时更紧凑 */}
+        <div className={`flex-shrink-0 flex justify-between items-start ${isCompactLayout ? 'p-2' : 'p-3'}`}>
+          <div className={`flex gap-2 ${isCompactLayout ? 'flex-nowrap' : 'flex-wrap'}`}>
             <button
               onClick={handleLeaveRoom}
-              className={`${isMobileLandscape ? 'px-2 py-1 text-xs' : 'px-4 py-2 text-sm'} bg-gray-800/80 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors`}
+              className={`${isCompactLayout ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'} bg-gray-800/80 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors`}
             >
               ← 离开
             </button>
@@ -516,7 +521,7 @@ export function GameTable({ room, getConnection }: GameTableProps) {
             {(isBidding || isDoubling || isPlaying) && (
               <button
                 onClick={() => setShowEndGameConfirm(true)}
-                className={`${isMobileLandscape ? 'px-2 py-1 text-xs' : 'px-4 py-2 text-sm'} bg-red-600/80 hover:bg-red-500 text-white rounded-lg transition-colors font-medium`}
+                className={`${isCompactLayout ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'} bg-red-600/80 hover:bg-red-500 text-white rounded-lg transition-colors font-medium`}
               >
                 结束
               </button>
@@ -534,13 +539,13 @@ export function GameTable({ room, getConnection }: GameTableProps) {
             )}
           </div>
 
-          <div className={`flex items-center ${isMobileLandscape ? 'gap-2' : 'gap-4'}`}>
+          <div className={`flex items-center ${isCompactLayout ? 'gap-2' : 'gap-3'}`}>
             {/* 横屏切换按钮 */}
             <FullscreenToggle />
 
             {/* 显示当前倍数 */}
             {(isDoubling || isPlaying) && game && (
-              <div className={`${isMobileLandscape ? 'px-2 py-1 text-xs' : 'px-4 py-2 text-sm'} bg-yellow-600/30 rounded-lg text-yellow-300 font-medium`}>
+              <div className={`${isCompactLayout ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'} bg-yellow-600/30 rounded-lg text-yellow-300 font-medium`}>
                 {game.multiple * game.doublingMultiple}x
               </div>
             )}
@@ -554,11 +559,12 @@ export function GameTable({ room, getConnection }: GameTableProps) {
           </div>
         </div>
 
-        <div className="flex-1 flex items-center justify-center">
+        {/* 中间区域 - 限制最大高度，确保底部手牌可见 */}
+        <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden">
           {/* 显示对手手牌 */}
-          <div className={`relative w-full ${isMobileLandscape ? 'max-w-full h-full' : 'max-w-4xl h-96'}`}>
+          <div className={`relative w-full h-full max-h-full ${isCompactLayout ? 'max-w-full' : 'max-w-4xl'}`}>
             {leftPlayer && (
-              <div className={`absolute ${isMobileLandscape ? 'left-2' : 'left-0'} top-1/2 -translate-y-1/2`}>
+              <div className={`absolute ${isCompactLayout ? 'left-2' : 'left-0'} top-1/2 -translate-y-1/2`}>
                 <OpponentHand
                   playerName={leftPlayer.playerName}
                   cardsCount={17}
@@ -572,7 +578,7 @@ export function GameTable({ room, getConnection }: GameTableProps) {
             )}
 
             {rightPlayer && (
-              <div className={`absolute ${isMobileLandscape ? 'right-2' : 'right-0'} top-1/2 -translate-y-1/2`}>
+              <div className={`absolute ${isCompactLayout ? 'right-2' : 'right-0'} top-1/2 -translate-y-1/2`}>
                 <OpponentHand
                   playerName={rightPlayer.playerName}
                   cardsCount={17}
@@ -587,31 +593,12 @@ export function GameTable({ room, getConnection }: GameTableProps) {
 
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
               <PlayArea currentPlay={currentPlay} players={players} />
-
-              {isPlaying && game && (
-                <TurnIndicator
-                  currentTurn={game.currentTurn}
-                  myTurn={isMyTurn()}
-                  turnStartTime={game.turnStartTime}
-                />
-              )}
             </div>
           </div>
         </div>
 
-        {/* 手牌区域 - 固定在底部 */}
-        <div className={`flex-shrink-0 ${isMobileLandscape ? 'p-2 pb-3' : 'p-4 pb-6'}`}>
-          {/* 当前玩家操作倒计时提示 */}
-          {isMyPlayerTurn && currentActionType && game?.turnStartTime && (
-            <div className="flex justify-center mb-2">
-              <PlayerActionTimer
-                turnStartTime={game.turnStartTime}
-                actionType={currentActionType}
-                isMyTurn={true}
-              />
-            </div>
-          )}
-
+        {/* 手牌区域 - 固定在底部，确保始终可见 */}
+        <div className={`flex-shrink-0 ${isCompactLayout ? 'py-2 px-2' : 'py-3 px-4'}`}>
           {/* 叫分阶段 */}
           {isBidding && (
             <BiddingPanel
@@ -637,10 +624,9 @@ export function GameTable({ room, getConnection }: GameTableProps) {
 
           {/* 显示手牌（叫分、加倍、出牌阶段都显示）*/}
           {(isBidding || isDoubling || isPlaying) && myHand && (
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-1">
               <PlayerHand
                 cards={myHand.cards}
-                isLandlord={myHand.isLandlord}
                 selectedCards={selectedCards}
                 onToggleCard={toggleCard}
                 isSelected={isSelected}
@@ -648,11 +634,11 @@ export function GameTable({ room, getConnection }: GameTableProps) {
               />
 
               {isPlaying && (
-                <div className={`flex ${isMobileLandscape ? 'gap-2' : 'gap-4'} mt-2`}>
+                <div className={`flex ${isCompactLayout ? 'gap-2' : 'gap-4'}`}>
                   <button
                     onClick={handlePlayCards}
                     disabled={!isMyTurn() || getSelectedCards().length === 0 || isTrusted}
-                    className={`${isMobileLandscape ? 'px-4 py-2 text-sm' : 'px-8 py-3'} bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors`}
+                    className={`${isCompactLayout ? 'px-4 py-2 text-sm' : 'px-6 py-2'} bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors`}
                   >
                     {isTrusted ? '托管中...' : '出牌'}
                   </button>
@@ -660,7 +646,7 @@ export function GameTable({ room, getConnection }: GameTableProps) {
                   <button
                     onClick={handlePass}
                     disabled={!canPass || isTrusted}
-                    className={`${isMobileLandscape ? 'px-4 py-2 text-sm' : 'px-8 py-3'} bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 font-medium rounded-lg transition-colors`}
+                    className={`${isCompactLayout ? 'px-4 py-2 text-sm' : 'px-6 py-2'} bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-gray-300 font-medium rounded-lg transition-colors`}
                   >
                     不出
                   </button>
@@ -669,6 +655,18 @@ export function GameTable({ room, getConnection }: GameTableProps) {
             </div>
           )}
         </div>
+
+        {/* 底部状态栏 - 游戏时长和状态 */}
+        <GameStatusBar
+          game={game}
+          gameStatus={gameStatus}
+          isCompactLayout={isCompactLayout}
+          isMyTurn={isMyPlayerTurn}
+          isLandlord={myHand?.isLandlord ?? false}
+          cardsCount={myHand?.cards.length}
+          turnStartTime={game?.turnStartTime}
+          actionType={currentActionType ?? undefined}
+        />
 
         {isFinished && game && (
           <GameResultModal
@@ -698,6 +696,124 @@ export function GameTable({ room, getConnection }: GameTableProps) {
           onCancel={() => setShowEndGameConfirm(false)}
         />
       </div>
+    </div>
+  )
+}
+
+/**
+ * 底部状态栏组件 - 显示游戏时长和状态
+ */
+interface GameStatusBarProps {
+  game: Game | null
+  gameStatus: string
+  isCompactLayout: boolean
+  isMyTurn?: boolean
+  isLandlord?: boolean
+  cardsCount?: number
+  turnStartTime?: bigint | Timestamp | null
+  actionType?: ActionType
+}
+
+function GameStatusBar({ game, gameStatus, isCompactLayout, isMyTurn, isLandlord, cardsCount, turnStartTime, actionType }: GameStatusBarProps) {
+  // 计算游戏时长（从游戏创建开始）
+  const duration = useGameDuration(
+    game?.createdAt ?? null,
+    gameStatus !== 'waiting'
+  )
+
+  // 倒计时
+  const { remainingSeconds } = useTurnTimer({
+    turnStartTime: turnStartTime ?? null,
+    enabled: isMyTurn && !!turnStartTime,
+  })
+
+  // 只在游戏进行中显示
+  if (gameStatus === 'waiting') {
+    return null
+  }
+
+  const statusColors: Record<string, string> = {
+    bidding: 'text-blue-400 bg-blue-900/30',
+    doubling: 'text-orange-400 bg-orange-900/30',
+    playing: 'text-green-400 bg-green-900/30',
+    finished: 'text-gray-400 bg-gray-900/30',
+  }
+
+  const statusIcons: Record<string, string> = {
+    bidding: '📢',
+    doubling: '⚡',
+    playing: '🃏',
+    finished: '🏁',
+  }
+
+  // 获取操作类型文字
+  const getActionText = (type: ActionType): string => {
+    switch (type) {
+      case 'bidding': return '叫分'
+      case 'doubling': return '加倍'
+      case 'playing': return '出牌'
+    }
+  }
+
+  // 计算倒计时颜色
+  const getTimerColor = () => {
+    if (remainingSeconds <= 5) return 'text-red-400'
+    if (remainingSeconds <= 10) return 'text-yellow-400'
+    return 'text-white'
+  }
+
+  return (
+    <div className={`flex-shrink-0 flex justify-center items-center gap-4 ${isCompactLayout ? 'py-1 px-2 text-xs' : 'py-1.5 px-4 text-sm'} bg-gray-900/50 border-t border-gray-700/50`}>
+      {/* 轮到您出牌提示 + 倒计时 */}
+      {isMyTurn && turnStartTime != null && turnStartTime !== undefined && actionType && (
+        <>
+          <div className="flex items-center gap-2 px-3 py-0.5 bg-green-600 rounded-lg text-white font-medium animate-pulse">
+            <span>⏰</span>
+            <span>{getActionText(actionType)}</span>
+            <span className={`font-mono font-bold ${getTimerColor()}`}>{remainingSeconds}s</span>
+          </div>
+          <div className="w-px h-4 bg-gray-700" />
+        </>
+      )}
+
+      {/* 我的身份和剩余卡牌 */}
+      {cardsCount !== undefined && cardsCount > 0 && (
+        <>
+          <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg ${isLandlord ? 'text-yellow-400 bg-yellow-900/30' : 'text-green-400 bg-green-900/30'}`}>
+            <span>{isLandlord ? '👑' : '🌾'}</span>
+            <span className="font-medium">{isLandlord ? '地主' : '农民'}</span>
+            <span className="text-gray-500">·</span>
+            <span className="font-mono">{cardsCount}张</span>
+          </div>
+          <div className="w-px h-4 bg-gray-700" />
+        </>
+      )}
+
+      {/* 游戏时长 */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-gray-500">⏱️</span>
+        <span className="text-gray-400 font-mono">{formatDuration(duration)}</span>
+      </div>
+
+      {/* 分隔符 */}
+      <div className="w-px h-4 bg-gray-700" />
+
+      {/* 游戏状态 */}
+      <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full ${statusColors[gameStatus] || 'text-gray-400 bg-gray-900/30'}`}>
+        <span>{statusIcons[gameStatus] || '🎮'}</span>
+        <span className="font-medium">{getGameStatusText(gameStatus)}</span>
+      </div>
+
+      {/* 倍数显示（出牌阶段） */}
+      {gameStatus === 'playing' && game && (
+        <>
+          <div className="w-px h-4 bg-gray-700" />
+          <div className="flex items-center gap-1.5 text-yellow-400">
+            <span>💰</span>
+            <span className="font-mono font-medium">{game.multiple * game.doublingMultiple}x</span>
+          </div>
+        </>
+      )}
     </div>
   )
 }

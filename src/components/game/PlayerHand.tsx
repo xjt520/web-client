@@ -5,7 +5,7 @@ import { useScreenOrientation } from '../../hooks/useScreenOrientation'
 
 interface PlayerHandProps {
   cards: Uint8Array
-  isLandlord: boolean
+  isLandlord?: boolean
   selectedCards: Set<number>
   onToggleCard: (card: number) => void
   isSelected: (card: number) => boolean
@@ -14,14 +14,13 @@ interface PlayerHandProps {
 
 export function PlayerHand({
   cards,
-  isLandlord,
   onToggleCard,
   isSelected,
   onDragSelect,
 }: PlayerHandProps) {
   const cardsArray = Array.from(cards)
   const sortedCards = sortCards(cardsArray)
-  const { isMobileLandscape, isMobileLandscapeSm } = useScreenOrientation()
+  const { isMobileLandscape, isMobileLandscapeSm, isSmallScreen, isCompactScreen } = useScreenOrientation()
 
   // 拖拽状态
   const isMouseDownRef = useRef(false)
@@ -41,6 +40,7 @@ export function PlayerHand({
         maxHeight: 65,
         containerWidth: Math.min(sortedCards.length * 24 + 70, 420),
         marginTop: -10,
+        textClass: 'text-xs',
       }
     }
     if (isMobileLandscape) {
@@ -49,15 +49,35 @@ export function PlayerHand({
         maxHeight: 75,
         containerWidth: Math.min(sortedCards.length * 28 + 90, 520),
         marginTop: -10,
+        textClass: 'text-xs',
+      }
+    }
+    if (isCompactScreen) {
+      return {
+        radius: 220,
+        maxHeight: 95,
+        containerWidth: Math.min(sortedCards.length * 32 + 100, 600),
+        marginTop: -12,
+        textClass: 'text-sm',
+      }
+    }
+    if (isSmallScreen) {
+      return {
+        radius: 260,
+        maxHeight: 110,
+        containerWidth: Math.min(sortedCards.length * 36 + 110, 680),
+        marginTop: -15,
+        textClass: 'text-sm',
       }
     }
     return {
-      radius: 280,
-      maxHeight: 120,
-      containerWidth: Math.min(sortedCards.length * 35 + 100, 700),
-      marginTop: -20,
+      radius: 400,
+      maxHeight: 170,
+      containerWidth: Math.min(sortedCards.length * 50 + 130, 850),
+      marginTop: -25,
+      textClass: 'text-sm',
     }
-  }, [isMobileLandscape, isMobileLandscapeSm, sortedCards.length])
+  }, [isMobileLandscape, isMobileLandscapeSm, isSmallScreen, isCompactScreen, sortedCards.length])
 
   // 计算扇形参数
   const cardCount = sortedCards.length
@@ -232,11 +252,6 @@ export function PlayerHand({
 
   return (
     <div className="flex flex-col items-center">
-      <div className={`mb-2 text-gray-400 ${isMobileLandscape ? 'text-xs' : 'text-sm'}`}>
-        {isLandlord && <span className="text-yellow-400 mr-2">👑 地主</span>}
-        剩余 {cardsArray.length} 张牌
-      </div>
-
       {/* 扇形手牌容器 */}
       <div
         className="relative fan-container"
