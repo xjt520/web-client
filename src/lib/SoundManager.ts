@@ -1,10 +1,13 @@
 /**
- * 音效管理类
- * 管理游戏中的所有音效播放
+ * 音效和背景音乐管理类
+ * 管理游戏中的所有音效和背景音乐播放
  */
 export class SoundManager {
-  private enabled: boolean = true
+  private soundEnabled: boolean = true
+  private musicEnabled: boolean = true
   private sounds: Map<string, HTMLAudioElement> = new Map()
+  private backgroundMusic: HTMLAudioElement | null = null
+  private currentMusicName: string | null = null
   private initialized: boolean = false
 
   constructor() {
@@ -17,12 +20,13 @@ export class SoundManager {
   initialize() {
     if (this.initialized) return
     this.preloadSounds()
+    this.preloadBackgroundMusic()
     this.initialized = true
   }
 
   private preloadSounds() {
     const soundFiles: Record<string, string> = {
-      card: '/sounds/card.mp3',
+      card: '/sounds/deal.mp3',
       bomb: '/sounds/bomb.mp3',
       rocket: '/sounds/rocket.mp3',
       win: '/sounds/win.mp3',
@@ -31,6 +35,7 @@ export class SoundManager {
       bid: '/sounds/bid.mp3',
       pass: '/sounds/pass.mp3',
       deal: '/sounds/deal.mp3',
+      start: '/sounds/start.mp3',
     }
 
     Object.entries(soundFiles).forEach(([name, src]) => {
@@ -45,11 +50,22 @@ export class SoundManager {
     })
   }
 
+  private preloadBackgroundMusic() {
+    try {
+      this.backgroundMusic = new Audio('/music/game.mp3')
+      this.backgroundMusic.preload = 'auto'
+      this.backgroundMusic.loop = true
+      this.backgroundMusic.volume = 0.3
+    } catch (e) {
+      console.warn('Failed to load background music', e)
+    }
+  }
+
   /**
    * 播放指定音效
    */
   play(soundName: string) {
-    if (!this.enabled || !this.initialized) return
+    if (!this.soundEnabled || !this.initialized) return
 
     const audio = this.sounds.get(soundName)
     if (audio) {
@@ -124,17 +140,89 @@ export class SoundManager {
   }
 
   /**
+   * 播放背景音乐
+   */
+  playBackgroundMusic(musicName: 'game' | 'lobby' = 'game') {
+    if (!this.musicEnabled || !this.initialized) return
+
+    // 如果已经在播放相同的音乐，不做任何操作
+    if (this.currentMusicName === musicName && this.backgroundMusic && !this.backgroundMusic.paused) {
+      return
+    }
+
+    // 停止当前音乐
+    this.stopBackgroundMusic()
+
+    // 更新音乐源
+    if (this.backgroundMusic) {
+      this.backgroundMusic.src = `/music/${musicName}.mp3`
+      this.currentMusicName = musicName
+      this.backgroundMusic.play().catch(() => {
+        // 忽略播放错误（通常是用户未交互）
+      })
+    }
+  }
+
+  /**
+   * 停止背景音乐
+   */
+  stopBackgroundMusic() {
+    if (this.backgroundMusic) {
+      this.backgroundMusic.pause()
+      this.backgroundMusic.currentTime = 0
+      this.currentMusicName = null
+    }
+  }
+
+  /**
+   * 暂停背景音乐
+   */
+  pauseBackgroundMusic() {
+    if (this.backgroundMusic) {
+      this.backgroundMusic.pause()
+    }
+  }
+
+  /**
+   * 恢复背景音乐
+   */
+  resumeBackgroundMusic() {
+    if (this.musicEnabled && this.backgroundMusic && this.currentMusicName) {
+      this.backgroundMusic.play().catch(() => {
+        // 忽略播放错误
+      })
+    }
+  }
+
+  /**
    * 设置音效开关
    */
-  setEnabled(enabled: boolean) {
-    this.enabled = enabled
+  setSoundEnabled(enabled: boolean) {
+    this.soundEnabled = enabled
+  }
+
+  /**
+   * 设置背景音乐开关
+   */
+  setMusicEnabled(enabled: boolean) {
+    this.musicEnabled = enabled
+    if (!enabled) {
+      this.stopBackgroundMusic()
+    }
   }
 
   /**
    * 获取音效开关状态
    */
-  isEnabled(): boolean {
-    return this.enabled
+  isSoundEnabled(): boolean {
+    return this.soundEnabled
+  }
+
+  /**
+   * 获取背景音乐开关状态
+   */
+  isMusicEnabled(): boolean {
+    return this.musicEnabled
   }
 
   /**

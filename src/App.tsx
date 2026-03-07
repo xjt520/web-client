@@ -1,5 +1,5 @@
 import { useSpacetimeDB } from 'spacetimedb/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { ConnectionStatus } from './components/auth/ConnectionStatus'
 import { LoginScreen } from './components/auth/LoginScreen'
 import { LobbyLayout } from './components/lobby/LobbyLayout'
@@ -7,6 +7,8 @@ import { WaitingRoom } from './components/lobby/WaitingRoom'
 import { GameTable } from './components/game/GameTable'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { useGame } from './hooks/useGame'
+import { useSettings } from './hooks/useSettings'
+import { useAudio } from './hooks/useAudio'
 import type { DbConnection } from './lib/spacetime'
 import type { User } from './module_bindings/types'
 
@@ -19,6 +21,22 @@ export default function App() {
   const [userName, setUserName] = useLocalStorage<string | null>('doudizhu_username', null)
   const { currentRoom, gameStatus, latestNotification } = useGame(getConnection as () => DbConnection | null)
   const [showNotification, setShowNotification] = useState(false)
+
+  // 音频设置
+  const { soundEnabled, musicEnabled } = useSettings(getConnection as () => DbConnection | null)
+  const audio = useAudio(soundEnabled, musicEnabled)
+  const [audioInitialized, setAudioInitialized] = useState(false)
+
+  // 使用 ref 追踪上一次的游戏状态，避免重复触发
+  const prevGameStateRef = useRef<{ room: string | null; status: string }>({ room: null, status: '' })
+
+  // 初始化音频（需要用户交互后）
+  const initializeAudio = useCallback(() => {
+    if (!audioInitialized) {
+      audio.initialize()
+      setAudioInitialized(true)
+    }
+  }, [audio, audioInitialized])
 
   // 显示系统通知
   useEffect(() => {
@@ -64,6 +82,45 @@ export default function App() {
     }
   }, [isActive, userName, getConnection, setUserName])
 
+  // 判断当前是否应该播放游戏音乐
+  const shouldPlayGameMusic = useCallback(() => {
+    return currentRoom && (gameStatus === 'bidding' || gameStatus === 'doubling' || gameStatus === 'playing')
+  }, [currentRoom, gameStatus])
+
+  // 根据游戏状态切换背景音乐（仅在游戏中播放）
+  useEffect(() => {
+    if (!audioInitialized || !musicEnabled) return
+
+    const roomId = currentRoom?.id?.toString() || null
+    const prev = prevGameStateRef.current
+
+    // 检查状态是否真的变化了
+    const stateChanged = prev.room !== roomId || prev.status !== gameStatus
+    if (!stateChanged) return
+
+    // 更新 ref
+    prevGameStateRef.current = { room: roomId, status: gameStatus }
+
+    // 只在游戏进行中（叫分、加倍、出牌阶段）播放背景音乐
+    if (shouldPlayGameMusic()) {
+      audio.playGameMusic()
+    } else {
+      // 其他情况（大厅、等待室、游戏结束）停止音乐
+      audio.stopMusic()
+    }
+  }, [currentRoom, gameStatus, audioInitialized, musicEnabled, audio, shouldPlayGameMusic])
+
+  // 当 musicEnabled 变化时，根据当前游戏状态决定播放或停止
+  useEffect(() => {
+    if (!audioInitialized) return
+
+    if (musicEnabled && shouldPlayGameMusic()) {
+      audio.playGameMusic()
+    } else {
+      audio.stopMusic()
+    }
+  }, [musicEnabled, audioInitialized, audio, shouldPlayGameMusic])
+
   if (!isActive) {
     return <ConnectionStatus error={connectionError?.message ?? null} />
   }
@@ -93,6 +150,8 @@ export default function App() {
       <GameTable
         room={currentRoom}
         getConnection={() => getConnection() as DbConnection | null}
+        audio={audio}
+        onFirstInteraction={initializeAudio}
       />
     )
   }

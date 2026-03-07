@@ -21,7 +21,7 @@ interface UseSoundEffectsReturn {
 export function useSoundEffects(soundEnabled: boolean = true): UseSoundEffectsReturn {
   // 同步音效开关
   useEffect(() => {
-    soundManager.setEnabled(soundEnabled)
+    soundManager.setSoundEnabled(soundEnabled)
   }, [soundEnabled])
 
   const playCard = useCallback(() => {
@@ -57,7 +57,7 @@ export function useSoundEffects(soundEnabled: boolean = true): UseSoundEffectsRe
   }, [])
 
   const setEnabled = useCallback((enabled: boolean) => {
-    soundManager.setEnabled(enabled)
+    soundManager.setSoundEnabled(enabled)
   }, [])
 
   const initialize = useCallback(() => {

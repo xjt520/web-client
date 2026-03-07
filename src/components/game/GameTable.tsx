@@ -27,9 +27,24 @@ import type { EventContext } from '../../module_bindings'
 interface GameTableProps {
   room: Room
   getConnection: () => DbConnection | null
+  audio?: {
+    initialize: () => void
+    playCard: () => void
+    playBomb: () => void
+    playRocket: () => void
+    playWin: () => void
+    playLose: () => void
+    playTick: () => void
+    playBid: () => void
+    playPass: () => void
+    playDeal: () => void
+    playGameMusic: () => void
+    stopMusic: () => void
+  }
+  onFirstInteraction?: () => void
 }
 
-export function GameTable({ room, getConnection }: GameTableProps) {
+export function GameTable({ room, getConnection, audio, onFirstInteraction }: GameTableProps) {
   const [game, setGame] = useState<Game | null>(null)
   const [myHand, setMyHand] = useState<PlayerHandType | null>(null)
   const [players, setPlayers] = useState<RoomPlayer[]>([])
@@ -46,10 +61,16 @@ export function GameTable({ room, getConnection }: GameTableProps) {
   const processedDoublingIds = useRef<Set<string>>(new Set())
   const processedGameResultIds = useRef<Set<string>>(new Set())
   const processedPlayIds = useRef<Set<string>>(new Set())
+  const lastTickSecond = useRef<number | null>(null)
 
   const { selectedCards, toggleCard, clearSelection, getSelectedCards, isSelected, setSelection } = useCardSelection()
   const { toasts, removeToast, error, success, warning, info } = useToast()
   const conn = getConnection()
+
+  // 首次点击初始化音频
+  const handleFirstClick = useCallback(() => {
+    onFirstInteraction?.()
+  }, [onFirstInteraction])
 
   // 屏幕方向检测
   const { isMobileLandscape, isCompactScreen } = useScreenOrientation()
@@ -336,24 +357,28 @@ export function GameTable({ room, getConnection }: GameTableProps) {
     try {
       await conn.reducers.playCards({ roomId: room.id, cards: new Uint8Array(cards) })
       clearSelection()
+      // 播放出牌音效
+      audio?.playCard()
     } catch (err) {
       console.error('Play cards error:', err)
       const errorMessage = err instanceof Error ? err.message : String(err)
       error(errorMessage)
     }
-  }, [conn, isMyTurn, getSelectedCards, room.id, clearSelection])
+  }, [conn, isMyTurn, getSelectedCards, room.id, clearSelection, audio])
 
   const handlePass = useCallback(() => {
     if (!conn || !isMyTurn()) return
 
     try {
       conn.reducers.passTurn({ roomId: room.id })
+      // 播放不出音效
+      audio?.playPass()
     } catch (err) {
       console.error('Pass turn error:', err)
       const errorMessage = err instanceof Error ? err.message : String(err)
       error(errorMessage)
     }
-  }, [conn, isMyTurn, room.id])
+  }, [conn, isMyTurn, room.id, audio])
 
   const handleBid = useCallback(
     (value: number) => {
@@ -361,13 +386,17 @@ export function GameTable({ room, getConnection }: GameTableProps) {
 
       try {
         conn.reducers.placeBid({ roomId: room.id, bidValue: value })
+        // 播放叫分音效（如果叫分大于0）
+        if (value > 0) {
+          audio?.playBid()
+        }
       } catch (err) {
         console.error('Bid error:', err)
         const errorMessage = err instanceof Error ? err.message : String(err)
         error(errorMessage)
       }
     },
-    [conn, room.id]
+    [conn, room.id, audio]
   )
 
   const handleDouble = useCallback(
@@ -502,8 +531,53 @@ export function GameTable({ room, getConnection }: GameTableProps) {
       d.playerIdentity.toHexString() === conn.identity.toHexString()
   )
 
+  // 游戏结束时播放胜负音效
+  useEffect(() => {
+    if (isFinished && gameResults.length > 0 && game && conn?.identity) {
+      const myResult = gameResults.find(
+        (r) => r.playerIdentity.toHexString() === conn.identity!.toHexString()
+      )
+
+      if (myResult) {
+        const isWinner =
+          (game.winner === 'landlord' && myResult.isLandlord) ||
+          (game.winner === 'farmer' && !myResult.isLandlord)
+
+        if (isWinner) {
+          audio?.playWin()
+        } else {
+          audio?.playLose()
+        }
+        // 停止背景音乐
+        audio?.stopMusic()
+      }
+    }
+  }, [isFinished, gameResults, game, conn?.identity, audio])
+
+  // 倒计时音效
+  const { remainingSeconds: myRemainingSeconds } = useTurnTimer({
+    turnStartTime: game?.turnStartTime ?? null,
+    enabled: isMyPlayerTurn && !!game?.turnStartTime,
+  })
+
+  // 倒计时 ≤5 秒时播放 tick 音效
+  useEffect(() => {
+    if (isMyPlayerTurn && myRemainingSeconds <= 5 && myRemainingSeconds > 0) {
+      // 只在秒数变化时播放，避免重复
+      if (lastTickSecond.current !== myRemainingSeconds) {
+        lastTickSecond.current = myRemainingSeconds
+        audio?.playTick()
+      }
+    } else {
+      lastTickSecond.current = null
+    }
+  }, [isMyPlayerTurn, myRemainingSeconds, audio])
+
   return (
-    <div className="h-screen bg-gradient-to-br from-green-900 to-gray-900 relative overflow-hidden">
+    <div
+      className="h-screen bg-gradient-to-br from-green-900 to-gray-900 relative overflow-hidden"
+      onClick={handleFirstClick}
+    >
       {/* 横屏提示 */}
       <OrientationPrompt />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
