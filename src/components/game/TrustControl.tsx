@@ -2,6 +2,7 @@ interface TrustControlProps {
   isTrusted: boolean
   onToggle: (trusted: boolean) => void
   disabled?: boolean
+  isCompact?: boolean
 }
 
 /**
@@ -11,13 +12,15 @@ export function TrustControl({
   isTrusted,
   onToggle,
   disabled = false,
+  isCompact = false,
 }: TrustControlProps) {
   return (
     <button
       onClick={() => onToggle(!isTrusted)}
       disabled={disabled}
       className={`
-        px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2
+        rounded-md font-medium transition-all flex items-center gap-1.5
+        ${isCompact ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm'}
         ${isTrusted
           ? 'bg-orange-600/80 hover:bg-orange-500 text-white'
           : 'bg-gray-700/80 hover:bg-gray-600 text-gray-300'
@@ -27,7 +30,7 @@ export function TrustControl({
       title={isTrusted ? '点击取消托管' : '点击托管，系统将自动出牌'}
     >
       <svg
-        className={`w-5 h-5 ${isTrusted ? 'animate-pulse' : ''}`}
+        className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'} ${isTrusted ? 'animate-pulse' : ''}`}
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"

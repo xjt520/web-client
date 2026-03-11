@@ -15,4 +15,5 @@ export default {
   musicEnabled: __t.option(__t.bool()),
   animationEnabled: __t.option(__t.bool()),
   cardSortOrder: __t.option(__t.string()),
+  tableTheme: __t.option(__t.string()),
 };

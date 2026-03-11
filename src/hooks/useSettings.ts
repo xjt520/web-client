@@ -2,18 +2,21 @@ import { useState, useEffect, useCallback } from 'react'
 import type { DbConnection } from '../lib/spacetime'
 import type { UserSettings } from '../module_bindings/types'
 import type { EventContext } from '../module_bindings'
+import { DEFAULT_THEME, type ThemeId } from '../config/themes'
 
 interface SettingsState {
   soundEnabled: boolean
   musicEnabled: boolean
   animationEnabled: boolean
   cardSortOrder: 'asc' | 'desc'
+  tableTheme: ThemeId
   isLoading: boolean
   updateSettings: (settings: Partial<{
     soundEnabled: boolean
     musicEnabled: boolean
     animationEnabled: boolean
     cardSortOrder: 'asc' | 'desc'
+    tableTheme: ThemeId
   }>) => Promise<void>
 }
 
@@ -23,6 +26,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   musicEnabled: true,
   animationEnabled: true,
   cardSortOrder: 'asc',
+  tableTheme: DEFAULT_THEME,
 }
 
 // 本地存储 key
@@ -56,6 +60,9 @@ export function useSettings(getConnection: () => DbConnection | null): SettingsS
   const [cardSortOrder, setCardSortOrder] = useState<'asc' | 'desc'>(
     (localSettings.cardSortOrder as 'asc' | 'desc') ?? DEFAULT_SETTINGS.cardSortOrder as 'asc' | 'desc'
   )
+  const [tableTheme, setTableTheme] = useState<ThemeId>(
+    (localSettings.tableTheme as ThemeId) ?? DEFAULT_SETTINGS.tableTheme
+  )
   const [isLoading, setIsLoading] = useState(true)
 
   const conn = getConnection()
@@ -87,11 +94,13 @@ export function useSettings(getConnection: () => DbConnection | null): SettingsS
         setMusicEnabled(s.musicEnabled)
         setAnimationEnabled(s.animationEnabled)
         setCardSortOrder(s.cardSortOrder as 'asc' | 'desc')
+        setTableTheme((s.tableTheme as ThemeId) || DEFAULT_THEME)
         saveToLocal({
           soundEnabled: s.soundEnabled,
           musicEnabled: s.musicEnabled,
           animationEnabled: s.animationEnabled,
           cardSortOrder: s.cardSortOrder,
+          tableTheme: s.tableTheme,
         })
       }
     })
@@ -103,11 +112,13 @@ export function useSettings(getConnection: () => DbConnection | null): SettingsS
         setMusicEnabled(s.musicEnabled)
         setAnimationEnabled(s.animationEnabled)
         setCardSortOrder(s.cardSortOrder as 'asc' | 'desc')
+        setTableTheme((s.tableTheme as ThemeId) || DEFAULT_THEME)
         saveToLocal({
           soundEnabled: s.soundEnabled,
           musicEnabled: s.musicEnabled,
           animationEnabled: s.animationEnabled,
           cardSortOrder: s.cardSortOrder,
+          tableTheme: s.tableTheme,
         })
       }
     })
@@ -128,11 +139,13 @@ export function useSettings(getConnection: () => DbConnection | null): SettingsS
           setMusicEnabled(mySettings.musicEnabled)
           setAnimationEnabled(mySettings.animationEnabled)
           setCardSortOrder(mySettings.cardSortOrder as 'asc' | 'desc')
+          setTableTheme((mySettings.tableTheme as ThemeId) || DEFAULT_THEME)
           saveToLocal({
             soundEnabled: mySettings.soundEnabled,
             musicEnabled: mySettings.musicEnabled,
             animationEnabled: mySettings.animationEnabled,
             cardSortOrder: mySettings.cardSortOrder,
+            tableTheme: mySettings.tableTheme,
           })
         }
 
@@ -148,12 +161,14 @@ export function useSettings(getConnection: () => DbConnection | null): SettingsS
     musicEnabled: boolean
     animationEnabled: boolean
     cardSortOrder: 'asc' | 'desc'
+    tableTheme: ThemeId
   }>) => {
     // 立即更新本地状态
     if (settings.soundEnabled !== undefined) setSoundEnabled(settings.soundEnabled)
     if (settings.musicEnabled !== undefined) setMusicEnabled(settings.musicEnabled)
     if (settings.animationEnabled !== undefined) setAnimationEnabled(settings.animationEnabled)
     if (settings.cardSortOrder !== undefined) setCardSortOrder(settings.cardSortOrder)
+    if (settings.tableTheme !== undefined) setTableTheme(settings.tableTheme)
 
     // 保存到本地存储
     saveToLocal(settings)
@@ -166,6 +181,7 @@ export function useSettings(getConnection: () => DbConnection | null): SettingsS
           musicEnabled: settings.musicEnabled,
           animationEnabled: settings.animationEnabled,
           cardSortOrder: settings.cardSortOrder,
+          tableTheme: settings.tableTheme,
         })
       } catch (e) {
         // 忽略错误，本地状态已更新
@@ -178,6 +194,7 @@ export function useSettings(getConnection: () => DbConnection | null): SettingsS
     musicEnabled,
     animationEnabled,
     cardSortOrder,
+    tableTheme,
     isLoading,
     updateSettings,
   }

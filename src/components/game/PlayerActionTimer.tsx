@@ -1,6 +1,7 @@
-import { useTurnTimer, TURN_TIMEOUT_SECONDS } from '../../hooks/useTurnTimer'
+import { useTurnTimer, TURN_TIMEOUT_SECONDS, type TimerPhase } from '../../hooks/useTurnTimer'
 import { useScreenOrientation } from '../../hooks/useScreenOrientation'
 import type { Timestamp } from 'spacetimedb'
+import './PhasedTimer.css'
 
 export type ActionType = 'bidding' | 'doubling' | 'playing'
 
@@ -43,6 +44,24 @@ function getActionIcon(actionType: ActionType): string {
 }
 
 /**
+ * 获取阶段对应的样式类名
+ */
+function getPhaseClassName(phase: TimerPhase): string {
+  switch (phase) {
+    case 'calm':
+      return 'timer-calm'
+    case 'breathing':
+      return 'timer-breathing'
+    case 'urgent':
+      return 'timer-urgent'
+    case 'timeout':
+      return 'timer-timeout'
+    default:
+      return ''
+  }
+}
+
+/**
  * 玩家操作倒计时组件
  * 显示在玩家位置旁边，提示当前需要哪个玩家做什么操作
  */
@@ -54,54 +73,27 @@ export function PlayerActionTimer({
   const { isMobileLandscape, isCompactScreen } = useScreenOrientation()
   const isCompact = isMobileLandscape || isCompactScreen
 
-  const { remainingSeconds, progress } = useTurnTimer({
+  const { remainingSeconds, progress, phase } = useTurnTimer({
     turnStartTime,
     enabled: true,
   })
 
-  // 计算进度条颜色
-  const getProgressColor = () => {
-    if (remainingSeconds <= 5) return 'bg-red-500'
-    if (remainingSeconds <= 10) return 'bg-yellow-500'
-    return 'bg-green-500'
-  }
-
-  // 计算边框颜色
-  const getBorderColor = () => {
-    if (remainingSeconds <= 5) return 'border-red-500'
-    if (remainingSeconds <= 10) return 'border-yellow-500'
-    return 'border-green-500'
-  }
-
-  // 计算背景颜色
-  const getBgColor = () => {
-    if (remainingSeconds <= 5) return 'bg-red-900/50'
-    if (remainingSeconds <= 10) return 'bg-yellow-900/50'
-    return 'bg-green-900/50'
-  }
-
-  // 计算文字颜色
-  const getTextColor = () => {
-    if (remainingSeconds <= 5) return 'text-red-300'
-    if (remainingSeconds <= 10) return 'text-yellow-300'
-    return 'text-green-300'
-  }
-
-  const isUrgent = remainingSeconds <= 5
+  const phaseClassName = getPhaseClassName(phase)
+  const isUrgent = phase === 'urgent'
+  const isFinal = remainingSeconds <= 5 && remainingSeconds > 0
 
   return (
     <div
       className={`
         flex items-center gap-1.5 rounded-lg border-2
         ${isCompact ? 'px-2 py-1' : 'px-3 py-2'}
-        ${getBgColor()} ${getBorderColor()}
-        ${isUrgent ? 'animate-pulse' : ''}
-        shadow-lg
+        ${phaseClassName}
+        shadow-lg transition-all duration-300
       `}
     >
       {/* 闹钟图标 */}
-      <div className="flex items-center">
-        <span className={`${isCompact ? 'text-base' : 'text-lg'} ${isUrgent ? 'animate-bounce' : ''}`}>
+      <div className="flex items-center timer-icon">
+        <span className={isCompact ? 'text-base' : 'text-lg'}>
           ⏰
         </span>
       </div>
@@ -109,16 +101,29 @@ export function PlayerActionTimer({
       {/* 操作图标和文字 */}
       <div className="flex items-center gap-1">
         <span className={isCompact ? 'text-sm' : 'text-base'}>{getActionIcon(actionType)}</span>
-        <span className={`font-medium ${isCompact ? 'text-xs' : 'text-sm'} ${getTextColor()}`}>
+        <span className={`font-medium ${isCompact ? 'text-xs' : 'text-sm'} timer-text`}>
           {isMyTurn ? '请' : ''}{getActionText(actionType)}
           {isMyTurn ? '' : '...'}
         </span>
       </div>
 
+      {/* 倒计时数字 */}
+      <span
+        className={`
+          font-mono font-bold
+          ${isCompact ? 'text-sm' : 'text-base'}
+          timer-number
+          ${isUrgent ? 'timer-number-urgent' : ''}
+          ${isFinal ? 'timer-final-countdown' : ''}
+        `}
+      >
+        {remainingSeconds}s
+      </span>
+
       {/* 倒计时进度条 */}
-      <div className={`${isCompact ? 'w-10 h-1' : 'w-16 h-1.5'} bg-gray-700 rounded-full overflow-hidden`}>
+      <div className={`${isCompact ? 'w-10 h-1.5' : 'w-16 h-2'} bg-gray-700/50 rounded-full overflow-hidden timer-progress-bar`}>
         <div
-          className={`h-full ${getProgressColor()} transition-all duration-200`}
+          className="h-full timer-progress transition-all duration-200"
           style={{ width: `${progress * 100}%` }}
         />
       </div>

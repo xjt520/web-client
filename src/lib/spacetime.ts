@@ -51,6 +51,7 @@ export function createConnectionBuilder() {
           'SELECT * FROM bid',
           'SELECT * FROM play',
           'SELECT * FROM current_play',
+          'SELECT * FROM chat_message',
         ])
     })
     .onDisconnect(() => {

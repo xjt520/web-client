@@ -14,6 +14,7 @@ import { useScreenOrientation } from '../../hooks/useScreenOrientation'
 import { ProfileModal } from '../profile/ProfileModal'
 import { SettingsModal } from '../settings/SettingsModal'
 import { RulesModal } from '../rules/RulesModal'
+import { getTheme } from '../../config/themes'
 import type { DbConnection } from '../../lib/spacetime'
 
 interface LobbyLayoutProps {
@@ -34,7 +35,7 @@ export function LobbyLayout({ onLogout, getConnection }: LobbyLayoutProps) {
   const { toasts, removeToast, error, success } = useToast()
   const { profile, user, settings } = useUserProfile(getConnection)
   const { isMatching, matchTime, matchedRoomId, error: matchError, joinQueue, leaveQueue } = useMatchQueue(getConnection)
-  const { updateSettings } = useSettings(getConnection)
+  const { updateSettings, tableTheme } = useSettings(getConnection)
   const { currentRoom, gameStatus } = useGame(getConnection)
   const { matchRecords, scoreHistory } = useMatchHistory(getConnection)
 
@@ -43,6 +44,9 @@ export function LobbyLayout({ onLogout, getConnection }: LobbyLayoutProps) {
 
   // 紧凑布局模式（移动端横屏或小屏幕）
   const isCompactLayout = isMobileLandscape || isCompactScreen
+
+  // 主题配置
+  const theme = getTheme(tableTheme)
 
   // 处理匹配成功
   useEffect(() => {
@@ -146,7 +150,7 @@ export function LobbyLayout({ onLogout, getConnection }: LobbyLayoutProps) {
   }
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-green-900 to-gray-900 ${isCompactLayout ? 'overflow-auto' : ''}`}>
+    <div className={`min-h-screen bg-gradient-to-br ${theme.background.gradient} ${isCompactLayout ? 'overflow-auto' : ''}`}>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* 头部 */}

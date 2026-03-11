@@ -25,6 +25,17 @@ export const Bid = __t.object("Bid", {
 });
 export type Bid = __Infer<typeof Bid>;
 
+export const ChatMessage = __t.object("ChatMessage", {
+  id: __t.u64(),
+  roomId: __t.u64(),
+  senderIdentity: __t.identity(),
+  senderName: __t.string(),
+  messageType: __t.string(),
+  content: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type ChatMessage = __Infer<typeof ChatMessage>;
+
 export const CurrentPlay = __t.object("CurrentPlay", {
   roomId: __t.u64(),
   playerIdentity: __t.identity(),
@@ -240,6 +251,7 @@ export const UserSettings = __t.object("UserSettings", {
   musicEnabled: __t.bool(),
   animationEnabled: __t.bool(),
   cardSortOrder: __t.string(),
+  tableTheme: __t.string(),
 });
 export type UserSettings = __Infer<typeof UserSettings>;
 

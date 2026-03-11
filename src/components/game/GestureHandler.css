@@ -1,0 +1,202 @@
+.gesture-handler {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;
+}
+
+.gesture-hint-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 60;
+}
+
+.gesture-hint {
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 16px 32px;
+  border-radius: 12px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  animation: gesture-hint-pop 0.3s ease-out;
+  backdrop-filter: blur(8px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+@keyframes gesture-hint-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.gesture-guide {
+  position: fixed;
+  bottom: 180px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16px;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.gesture-guide-item {
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  backdrop-filter: blur(4px);
+  animation: gesture-guide-fade 3s ease-out forwards;
+}
+
+@keyframes gesture-guide-fade {
+  0%, 70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 卡牌缩放支持 */
+.fan-container {
+  --card-scale: 1;
+  transform: scale(var(--card-scale));
+  transform-origin: bottom center;
+  transition: transform 0.2s ease-out;
+}
+
+/* 滑动指示器 */
+.swipe-indicator {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.swipe-indicator.left {
+  left: 20px;
+  background: rgba(239, 68, 68, 0.8);
+}
+
+.swipe-indicator.right {
+  right: 20px;
+  background: rgba(34, 197, 94, 0.8);
+}
+
+.swipe-indicator.active {
+  opacity: 1;
+  animation: swipe-indicator-pulse 0.5s ease-out;
+}
+
+@keyframes swipe-indicator-pulse {
+  0% {
+    transform: translateY(-50%) scale(0.5);
+  }
+  50% {
+    transform: translateY(-50%) scale(1.2);
+  }
+  100% {
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+/* 移动端手势提示覆盖层 */
+.mobile-gesture-tutorial {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: white;
+}
+
+.gesture-tutorial-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 32px;
+}
+
+.gesture-tutorial-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.gesture-tutorial-icon {
+  font-size: 2rem;
+  width: 48px;
+  text-align: center;
+}
+
+.gesture-tutorial-text {
+  flex: 1;
+}
+
+.gesture-tutorial-name {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.gesture-tutorial-desc {
+  font-size: 0.875rem;
+  opacity: 0.7;
+}
+
+.gesture-tutorial-close {
+  margin-top: 32px;
+  padding: 12px 32px;
+  background: #3b82f6;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+@media (min-width: 768px) {
+  .gesture-guide {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gesture-hint,
+  .gesture-guide-item,
+  .swipe-indicator {
+    animation: none;
+  }
+}

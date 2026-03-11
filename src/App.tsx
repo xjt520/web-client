@@ -5,6 +5,7 @@ import { LoginScreen } from './components/auth/LoginScreen'
 import { LobbyLayout } from './components/lobby/LobbyLayout'
 import { WaitingRoom } from './components/lobby/WaitingRoom'
 import { GameTable } from './components/game/GameTable'
+import { GameEndTransitionDemo } from './components/game/GameEndTransitionDemo'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { useGame } from './hooks/useGame'
 import { useSettings } from './hooks/useSettings'
@@ -17,13 +18,20 @@ const STDB_URI = import.meta.env.VITE_STDB_URI || 'ws://localhost:3000'
 const STDB_MODULE = import.meta.env.VITE_STDB_MODULE || 'doudizhu-game'
 
 export default function App() {
+  // 演示模式检测
+  const isDemoMode = typeof window !== 'undefined' && 
+    new URLSearchParams(window.location.search).get('demo') === 'transition'
+
   const { isActive, connectionError, getConnection } = useSpacetimeDB()
   const [userName, setUserName] = useLocalStorage<string | null>('doudizhu_username', null)
+  const [lastRoomId, setLastRoomId] = useLocalStorage<string | null>('doudizhu_last_room', null)
   const { currentRoom, gameStatus, latestNotification } = useGame(getConnection as () => DbConnection | null)
   const [showNotification, setShowNotification] = useState(false)
+  const [isReconnecting, setIsReconnecting] = useState(false)
+  const [reconnectMessage, setReconnectMessage] = useState<string | null>(null)
 
   // 音频设置
-  const { soundEnabled, musicEnabled } = useSettings(getConnection as () => DbConnection | null)
+  const { soundEnabled, musicEnabled, tableTheme } = useSettings(getConnection as () => DbConnection | null)
   const audio = useAudio(soundEnabled, musicEnabled)
   const [audioInitialized, setAudioInitialized] = useState(false)
 
@@ -56,6 +64,16 @@ export default function App() {
     console.log('========================================')
   }, [])
 
+  // 保存当前房间ID到本地存储（用于断线重连）
+  useEffect(() => {
+    if (currentRoom) {
+      setLastRoomId(currentRoom.id.toString())
+    } else if (gameStatus === 'waiting' && !currentRoom) {
+      // 离开房间时清除
+      setLastRoomId(null)
+    }
+  }, [currentRoom, gameStatus, setLastRoomId])
+
   // 检查用户是否在数据库中存在，如果不存在则重新注册
   useEffect(() => {
     if (!isActive || !userName) return
@@ -71,16 +89,36 @@ export default function App() {
 
     if (!userExists) {
       // 用户不存在，重新注册
+      setIsReconnecting(true)
+      setReconnectMessage('正在恢复用户状态...')
       console.log('User not found in database, re-registering...')
       try {
         conn.reducers.join({ name: userName })
+        // 等待一小段时间让状态同步
+        setTimeout(() => {
+          setIsReconnecting(false)
+          setReconnectMessage(null)
+          // 如果之前在房间中，提示用户
+          if (lastRoomId) {
+            setReconnectMessage('已恢复连接，正在同步游戏状态...')
+            setTimeout(() => setReconnectMessage(null), 3000)
+          }
+        }, 500)
       } catch (err) {
         console.error('Failed to re-register user:', err)
+        setIsReconnecting(false)
+        setReconnectMessage(null)
         // 如果注册失败，清除本地存储的用户名
         setUserName(null)
       }
+    } else {
+      // 用户已存在，如果之前在房间中，检查是否需要重连
+      if (lastRoomId && isReconnecting === false) {
+        setReconnectMessage('已恢复连接')
+        setTimeout(() => setReconnectMessage(null), 2000)
+      }
     }
-  }, [isActive, userName, getConnection, setUserName])
+  }, [isActive, userName, getConnection, setUserName, lastRoomId])
 
   // 判断当前是否应该播放游戏音乐
   const shouldPlayGameMusic = useCallback(() => {
@@ -122,7 +160,33 @@ export default function App() {
   }, [musicEnabled, audioInitialized, audio, shouldPlayGameMusic])
 
   if (!isActive) {
-    return <ConnectionStatus error={connectionError?.message ?? null} />
+    return <ConnectionStatus error={connectionError?.message ?? null} onRetry={() => window.location.reload()} />
+  }
+
+  // 重连状态提示
+  if (isReconnecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <div className="text-center">
+          <div className="relative w-16 h-16 mx-auto mb-4">
+            <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-green-500 border-r-green-500"></div>
+          </div>
+          <p className="text-white font-medium mb-1">{reconnectMessage || '正在恢复连接...'}</p>
+          <p className="text-gray-400 text-sm">请稍候</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 演示模式：显示过渡动画演示页面
+  if (isDemoMode) {
+    return (
+      <GameEndTransitionDemo 
+        onBack={() => {
+          window.location.href = window.location.pathname
+        }}
+      />
+    )
   }
 
   if (!userName) {
@@ -140,6 +204,7 @@ export default function App() {
       <WaitingRoom
         room={currentRoom}
         getConnection={() => getConnection() as DbConnection | null}
+        tableTheme={tableTheme}
       />
     )
   }
@@ -152,6 +217,7 @@ export default function App() {
         getConnection={() => getConnection() as DbConnection | null}
         audio={audio}
         onFirstInteraction={initializeAudio}
+        tableTheme={tableTheme}
       />
     )
   }
@@ -162,6 +228,7 @@ export default function App() {
       <WaitingRoom
         room={currentRoom}
         getConnection={() => getConnection() as DbConnection | null}
+        tableTheme={tableTheme}
       />
     )
   }

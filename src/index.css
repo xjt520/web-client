@@ -332,6 +332,27 @@ body {
   border-color: rgba(59, 130, 246, 0.8);
 }
 
+/* 可出牌高亮 - 绿色边框提示 */
+.fan-card-playable .card {
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6), 0 2px 6px rgba(0, 0, 0, 0.15);
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+/* 触摸设备可出牌 hover 效果 */
+@media (hover: none) and (pointer: coarse) {
+  .fan-card-playable:hover .card {
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6), 0 2px 6px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* 非触摸设备可出牌 hover 效果 */
+@media not all and (hover: none) and (pointer: coarse) {
+  .fan-card-playable:hover .card {
+    transform: translateY(-6px);
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.8), 0 4px 10px rgba(34, 197, 94, 0.4);
+  }
+}
+
 /* 手机横屏选中效果调整 */
 @media (max-height: 500px) and (orientation: landscape) {
   .fan-card-selected .card {
@@ -432,5 +453,192 @@ body {
   }
   50% {
     transform: rotate(90deg);
+  }
+}
+
+/* ==================== 聊天气泡样式 ==================== */
+.chat-bubble-floating {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  padding: 8px 12px;
+  border-radius: 12px;
+  z-index: 100;
+  animation: bubble-float 2s ease-out forwards;
+  pointer-events: none;
+}
+
+.chat-bubble-floating::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid rgba(0, 0, 0, 0.8);
+}
+
+@keyframes bubble-float {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px) scale(0.8);
+  }
+  20% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px) scale(0.8);
+  }
+}
+
+/* ==================== 移动端安全区域 ==================== */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* ==================== 操作工具栏样式 ==================== */
+.action-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding: 6px 12px;
+  background: transparent;
+}
+
+.action-toolbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.action-btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+}
+
+.action-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.action-btn-secondary {
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  color: #d1d5db;
+}
+
+.action-btn-secondary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  transform: translateY(-2px);
+}
+
+.action-btn-success {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+}
+
+.action-btn-success:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
+}
+
+.action-btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+
+.action-btn-danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.action-btn-chat {
+  background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+  color: white;
+  padding: 8px 14px;
+}
+
+.action-btn-chat:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c084fc 0%, #a855f7 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+}
+
+.action-hint {
+  color: #9ca3af;
+  font-size: 13px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+
+/* 手机横屏操作工具栏 */
+@media (max-height: 500px) and (orientation: landscape) {
+  .action-toolbar {
+    padding: 4px 8px;
+  }
+
+  .action-toolbar-inner {
+    gap: 6px;
+  }
+
+  .action-btn {
+    padding: 6px 14px;
+    font-size: 12px;
+    border-radius: 5px;
+  }
+
+  .action-hint {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+}
+
+/* 超小屏幕横屏 */
+@media (max-height: 400px) and (orientation: landscape) {
+  .action-toolbar {
+    padding: 3px 6px;
+  }
+
+  .action-toolbar-inner {
+    gap: 4px;
+  }
+
+  .action-btn {
+    padding: 5px 10px;
+    font-size: 11px;
+    border-radius: 4px;
   }
 }

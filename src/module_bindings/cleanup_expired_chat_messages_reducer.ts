@@ -10,11 +10,4 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default __t.row({
-  identity: __t.identity().primaryKey(),
-  soundEnabled: __t.bool().name("sound_enabled"),
-  musicEnabled: __t.bool().name("music_enabled"),
-  animationEnabled: __t.bool().name("animation_enabled"),
-  cardSortOrder: __t.string().name("card_sort_order"),
-  tableTheme: __t.string().name("table_theme"),
-});
+export default {};

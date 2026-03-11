@@ -11,10 +11,11 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  identity: __t.identity().primaryKey(),
-  soundEnabled: __t.bool().name("sound_enabled"),
-  musicEnabled: __t.bool().name("music_enabled"),
-  animationEnabled: __t.bool().name("animation_enabled"),
-  cardSortOrder: __t.string().name("card_sort_order"),
-  tableTheme: __t.string().name("table_theme"),
+  id: __t.u64().primaryKey(),
+  roomId: __t.u64().name("room_id"),
+  senderIdentity: __t.identity().name("sender_identity"),
+  senderName: __t.string().name("sender_name"),
+  messageType: __t.string().name("message_type"),
+  content: __t.string(),
+  createdAt: __t.timestamp().name("created_at"),
 });

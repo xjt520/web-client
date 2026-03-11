@@ -39,6 +39,7 @@ import IdentityDisconnectedReducer from "./identity_disconnected_reducer";
 import CheckBidTimeoutReducer from "./check_bid_timeout_reducer";
 import CheckDoublingTimeoutReducer from "./check_doubling_timeout_reducer";
 import CheckMatchQueueReducer from "./check_match_queue_reducer";
+import CleanupExpiredChatMessagesReducer from "./cleanup_expired_chat_messages_reducer";
 import CreateAiRoomReducer from "./create_ai_room_reducer";
 import CreateRoomReducer from "./create_room_reducer";
 import DoubleBetReducer from "./double_bet_reducer";
@@ -56,6 +57,7 @@ import PlayCardsReducer from "./play_cards_reducer";
 import RestartGameReducer from "./restart_game_reducer";
 import ResumeGameReducer from "./resume_game_reducer";
 import ScheduleEmptyRoomCheckReducer from "./schedule_empty_room_check_reducer";
+import SendChatMessageReducer from "./send_chat_message_reducer";
 import SetReadyReducer from "./set_ready_reducer";
 import SetTrustedReducer from "./set_trusted_reducer";
 import StartAiActionScheduleReducer from "./start_ai_action_schedule_reducer";
@@ -74,6 +76,7 @@ import UpdateSettingsReducer from "./update_settings_reducer";
 
 // Import all table schema definitions
 import BidRow from "./bid_table";
+import ChatMessageRow from "./chat_message_table";
 import CurrentPlayRow from "./current_play_table";
 import DoublingRow from "./doubling_table";
 import GameRow from "./game_table";
@@ -111,6 +114,23 @@ const tablesSchema = __schema({
       { name: 'bid_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, BidRow),
+  chat_message: __table({
+    name: 'chat_message',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { name: 'room_id', algorithm: 'btree', columns: [
+        'roomId',
+      ] },
+      { name: 'sender_identity', algorithm: 'btree', columns: [
+        'senderIdentity',
+      ] },
+    ],
+    constraints: [
+      { name: 'chat_message_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, ChatMessageRow),
   current_play: __table({
     name: 'current_play',
     indexes: [
@@ -342,6 +362,7 @@ const reducersSchema = __reducers(
   __reducerSchema("check_bid_timeout", CheckBidTimeoutReducer),
   __reducerSchema("check_doubling_timeout", CheckDoublingTimeoutReducer),
   __reducerSchema("check_match_queue", CheckMatchQueueReducer),
+  __reducerSchema("cleanup_expired_chat_messages", CleanupExpiredChatMessagesReducer),
   __reducerSchema("create_ai_room", CreateAiRoomReducer),
   __reducerSchema("create_room", CreateRoomReducer),
   __reducerSchema("double_bet", DoubleBetReducer),
@@ -359,6 +380,7 @@ const reducersSchema = __reducers(
   __reducerSchema("restart_game", RestartGameReducer),
   __reducerSchema("resume_game", ResumeGameReducer),
   __reducerSchema("schedule_empty_room_check", ScheduleEmptyRoomCheckReducer),
+  __reducerSchema("send_chat_message", SendChatMessageReducer),
   __reducerSchema("set_ready", SetReadyReducer),
   __reducerSchema("set_trusted", SetTrustedReducer),
   __reducerSchema("start_ai_action_schedule", StartAiActionScheduleReducer),

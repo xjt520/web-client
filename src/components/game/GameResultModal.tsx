@@ -1,4 +1,5 @@
 import type { GameResult, RoomPlayer } from '../../module_bindings/types'
+import { useScreenOrientation } from '../../hooks/useScreenOrientation'
 
 interface GameResultModalProps {
   winner: string | undefined
@@ -11,9 +12,6 @@ interface GameResultModalProps {
   onLeave: () => void
 }
 
-/**
- * 游戏结果弹窗组件 - 展示所有玩家的游戏报表
- */
 export function GameResultModal({
   winner,
   gameResults,
@@ -24,7 +22,9 @@ export function GameResultModal({
   onRestart,
   onLeave,
 }: GameResultModalProps) {
-  // 获取当前玩家的结果
+  const { isMobileLandscape, isCompactScreen } = useScreenOrientation()
+  const isCompact = isMobileLandscape || isCompactScreen
+
   const myResult = gameResults.find(
     (r) => r.playerIdentity.toHexString() === myIdentityHex
   )
@@ -33,31 +33,22 @@ export function GameResultModal({
     (winner === 'landlord' && isLandlord) ||
     (winner === 'farmer' && !isLandlord)
 
-  const getResultText = () => {
-    if (winner === 'none') {
-      return { title: '流局', subtitle: '所有人都放弃叫分', emoji: '😐' }
-    }
-    if (winner === 'ai') {
-      return { title: '游戏结束', subtitle: '所有玩家已离开', emoji: '👋' }
-    }
-    if (isWinner) {
-      let subtitle = isLandlord ? '地主获胜' : '农民获胜'
-      if (isSpring) subtitle += ' - 春天！'
-      if (isAntiSpring) subtitle += ' - 反春天！'
-      return { title: '🎉 胜利！', subtitle, emoji: '🏆' }
-    }
-    return { title: '😢 失败', subtitle: isLandlord ? '地主失败' : '农民失败', emoji: '💔' }
-  }
-
-  const result = getResultText()
-
-  // 获取玩家名称
   const getPlayerName = (identityHex: string) => {
     const player = players.find((p) => p.playerIdentity.toHexString() === identityHex)
-    return player?.playerName || '未知玩家'
+    return player?.playerName || '未知'
   }
 
-  // 按角色排序：地主在前，农民在后
+  const getResultText = () => {
+    if (winner === 'none') return { title: '流局', icon: '😐' }
+    if (winner === 'ai') return { title: '游戏结束', icon: '👋' }
+    if (isSpring) return { title: '春天', icon: '🌸' }
+    if (isAntiSpring) return { title: '反春天', icon: '🌿' }
+    if (isWinner) return { title: '胜利', icon: '🏆' }
+    return { title: '失败', icon: '💔' }
+  }
+
+  const { title, icon } = getResultText()
+
   const sortedResults = [...gameResults].sort((a, b) => {
     if (a.isLandlord && !b.isLandlord) return -1
     if (!a.isLandlord && b.isLandlord) return 1
@@ -65,120 +56,101 @@ export function GameResultModal({
   })
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3 sm:p-4">
-      <div className="bg-gray-800 rounded-xl p-4 sm:p-6 w-full max-w-lg mx-auto text-center max-h-[90vh] overflow-y-auto">
-        <div className="text-4xl sm:text-5xl mb-2 sm:mb-3">{result.emoji}</div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onLeave} />
 
-        <h2 className="text-xl sm:text-2xl font-bold text-white mb-1">{result.title}</h2>
-        <p className="text-sm sm:text-base text-gray-400 mb-2 sm:mb-3">{result.subtitle}</p>
-
-        {/* 春天/反春天标签 */}
-        {(isSpring || isAntiSpring) && (
-          <div className="mb-2 sm:mb-3">
-            <span className={`
-              inline-block px-2 sm:px-3 py-1 rounded-full text-xs font-bold
-              ${isSpring ? 'bg-red-500/30 text-red-300' : 'bg-green-500/30 text-green-300'}
-            `}>
-              {isSpring ? '🌸 春天！' : '🌿 反春天！'}
-            </span>
+      <div className={`
+        relative bg-gray-900/95 rounded-2xl shadow-2xl border border-gray-700/50
+        ${isCompact ? 'w-full max-w-sm' : 'w-full max-w-xs'}
+        animate-[fadeIn_0.2s_ease-out]
+      `}>
+        <div className="p-5 text-center">
+          <div className={`
+            text-4xl mb-2
+            ${isWinner ? 'animate-bounce' : ''}
+          `}>
+            {icon}
           </div>
-        )}
+          <h2 className={`
+            text-2xl font-bold mb-1
+            ${isWinner ? 'text-yellow-400' : winner === 'none' ? 'text-gray-400' : 'text-gray-300'}
+          `}>
+            {title}
+          </h2>
+          {isSpring && <p className="text-pink-400 text-xs">完美碾压</p>}
+          {isAntiSpring && <p className="text-emerald-400 text-xs">绝地反击</p>}
+          {winner === 'none' && <p className="text-gray-500 text-xs">全部不叫</p>}
+        </div>
 
-        {/* 所有玩家游戏报表 */}
-        {gameResults.length > 0 && (
-          <div className="bg-gray-700/50 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
-            <h3 className="text-sm sm:text-base text-white font-medium mb-2 sm:mb-3 text-center">📊 游戏报表</h3>
-            <div className="space-y-2">
-              {sortedResults.map((gameResult, index) => {
-                const identityHex = gameResult.playerIdentity.toHexString()
-                const isMe = identityHex === myIdentityHex
-                const playerResultIsWinner =
-                  (winner === 'landlord' && gameResult.isLandlord) ||
-                  (winner === 'farmer' && !gameResult.isLandlord)
+        <div className="border-t border-gray-700/50 px-4 py-3 space-y-2">
+          {sortedResults.map((result, index) => {
+            const identityHex = result.playerIdentity.toHexString()
+            const isMe = identityHex === myIdentityHex
+            const playerIsWinner =
+              (winner === 'landlord' && result.isLandlord) ||
+              (winner === 'farmer' && !result.isLandlord)
 
-                return (
-                  <div
-                    key={index}
-                    className={`
-                      rounded-lg p-2 sm:p-3 text-xs sm:text-sm
-                      ${isMe ? 'bg-blue-900/30 border border-blue-500/50' : 'bg-gray-600/30'}
-                    `}
-                  >
-                    <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
-                        {/* 角色标签 */}
-                        <span className={`
-                          px-1.5 sm:px-2 py-0.5 rounded text-xs font-medium shrink-0
-                          ${gameResult.isLandlord ? 'bg-red-600/50 text-red-200' : 'bg-green-600/50 text-green-200'}
-                        `}>
-                          {gameResult.isLandlord ? '👑 地主' : '🌾 农民'}
-                        </span>
-                        {/* 玩家名称 */}
-                        <span className={`font-medium truncate ${isMe ? 'text-blue-300' : 'text-gray-300'}`}>
-                          {getPlayerName(identityHex)}
-                          {isMe && <span className="text-xs text-blue-400 ml-1 hidden sm:inline">(你)</span>}
-                        </span>
-                      </div>
-                      {/* 胜负标签 */}
-                      <span className={`
-                        px-1.5 sm:px-2 py-0.5 rounded text-xs font-bold shrink-0
-                        ${playerResultIsWinner ? 'bg-yellow-600/50 text-yellow-200' : 'bg-gray-500/50 text-gray-300'}
-                      `}>
-                        {playerResultIsWinner ? '✓ 胜' : '✗ 负'}
-                      </span>
-                    </div>
+            return (
+              <div
+                key={index}
+                className={`
+                  flex items-center justify-between py-2 px-3 rounded-lg
+                  ${isMe ? 'bg-blue-900/30 border border-blue-500/30' : 'bg-gray-800/50'}
+                `}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base">
+                    {result.isLandlord ? '👑' : '🌾'}
+                  </span>
+                  <span className={`truncate ${isMe ? 'text-blue-300 font-medium' : 'text-gray-300'}`}>
+                    {getPlayerName(identityHex)}
+                    {isMe && <span className="text-blue-400 text-xs ml-1">(你)</span>}
+                  </span>
+                  {playerIsWinner && <span className="text-yellow-400 text-xs">✓</span>}
+                </div>
+                <div className={`
+                  font-bold text-lg shrink-0 ml-2
+                  ${result.finalScore > 0 ? 'text-green-400' : result.finalScore < 0 ? 'text-red-400' : 'text-gray-400'}
+                `}>
+                  {result.finalScore > 0 ? '+' : ''}{result.finalScore}
+                </div>
+              </div>
+            )
+          })}
+        </div>
 
-                    {/* 积分明细 - 移动端使用2列 */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 sm:gap-2 text-xs text-gray-400 mb-1 sm:mb-2">
-                      <div className="text-center">
-                        <div className="text-gray-500">基础</div>
-                        <div className="text-white">{gameResult.baseScore}</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-gray-500">叫分</div>
-                        <div className="text-white">x{gameResult.bidMultiple}</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-gray-500">加倍</div>
-                        <div className="text-white">x{gameResult.doublingMultiple}</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-gray-500">炸弹</div>
-                        <div className="text-orange-400">x{gameResult.bombMultiple}</div>
-                      </div>
-                    </div>
-
-                    {/* 最终得分 */}
-                    <div className="flex justify-between items-center pt-1 sm:pt-2 border-t border-gray-600/50">
-                      <span className="text-gray-400 text-xs">最终得分</span>
-                      <span className={`font-bold text-base sm:text-lg ${
-                        gameResult.finalScore > 0 ? 'text-green-400' : 'text-red-400'
-                      }`}>
-                        {gameResult.finalScore > 0 ? '+' : ''}{gameResult.finalScore}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-2">
+        <div className="p-4 flex gap-3">
           <button
             onClick={onRestart}
-            className="w-full py-3 sm:py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors text-sm sm:text-base touch:manipulation"
+            className="
+              flex-1 py-2.5 px-4
+              bg-blue-600 hover:bg-blue-500
+              text-white font-medium rounded-lg
+              transition-colors
+            "
           >
             再来一局
           </button>
           <button
             onClick={onLeave}
-            className="w-full py-3 sm:py-4 bg-gray-700 hover:bg-gray-600 text-gray-300 font-medium rounded-lg transition-colors text-sm sm:text-base touch:manipulation"
+            className="
+              flex-1 py-2.5 px-4
+              bg-gray-700 hover:bg-gray-600
+              text-gray-300 font-medium rounded-lg
+              transition-colors
+            "
           >
-            返回大厅
+            离开
           </button>
         </div>
       </div>
+
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
     </div>
   )
 }

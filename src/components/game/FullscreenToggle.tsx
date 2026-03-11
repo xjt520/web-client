@@ -84,19 +84,19 @@ export function FullscreenToggle() {
   return (
     <button
       onClick={toggleFullscreen}
-      className={`${isFullscreen && isLandscape ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'} bg-purple-600/80 hover:bg-purple-500 text-white rounded-lg transition-colors flex items-center gap-1`}
+      className={`${isFullscreen && isLandscape ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm'} bg-purple-600/80 hover:bg-purple-500 text-white rounded-md transition-colors flex items-center gap-1`}
       title={isFullscreen ? '退出全屏' : '横屏模式'}
     >
       {isFullscreen && isLandscape ? (
         <>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
           <span>退出</span>
         </>
       ) : (
         <>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
           </svg>
           <span>横屏</span>
