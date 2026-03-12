@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
-import { EmojiType, getEmojiIcon } from '../lib/emotes'
+import { EmojiType, getEmojiIcon, getQuickChatByText } from '../lib/emotes'
+import { soundManager } from '../lib/SoundManager'
 import type { DbConnection } from '../lib/spacetime'
 import type { ChatMessage as SpacetimeDBChatMessage } from '../module_bindings/types'
 import type { EventContext } from '../module_bindings'
@@ -66,7 +67,18 @@ export function useChat(
 
     db.chat_message.onInsert((_ctx: EventContext, msg: SpacetimeDBChatMessage) => {
       if (msg.roomId !== roomId) return
-      setMessages((prev) => [...prev, convertMessage(msg)])
+      const convertedMsg = convertMessage(msg)
+      setMessages((prev) => [...prev, convertedMsg])
+      
+      // 如果是其他玩家发送的快捷语消息，播放对应的语音
+      // 自己的消息在 GameTable 的 handleSelectQuickChat 中已经播放过了
+      const isOwnMessage = conn.identity && msg.senderIdentity.toHexString() === conn.identity.toHexString()
+      if (!isOwnMessage && convertedMsg.type === 'text') {
+        const quickChat = getQuickChatByText(msg.content)
+        if (quickChat?.soundFile) {
+          soundManager.playQuickChatSound(quickChat.soundFile)
+        }
+      }
     })
 
     db.chat_message.onDelete((_ctx: EventContext, msg: SpacetimeDBChatMessage) => {

@@ -14,8 +14,14 @@ interface UseAudioReturn {
   playLose: () => void
   playTick: () => void
   playBid: () => void
+  playBidScore: (score: number) => void
+  playNoBid: () => void
+  playDouble: () => void
+  playNoDouble: () => void
   playPass: () => void
   playDeal: () => void
+  playStart: () => void
+  playQuickChat: (soundFile: string) => void
 
   // 背景音乐控制
   playGameMusic: () => void
@@ -46,8 +52,14 @@ const stableCallbacks = {
   playLose: () => soundManager.playLoseSound(),
   playTick: () => soundManager.playTickSound(),
   playBid: () => soundManager.playBidSound(),
+  playBidScore: (score: number) => soundManager.playBidScoreSound(score),
+  playNoBid: () => soundManager.playNoBidSound(),
+  playDouble: () => soundManager.playDoubleSound(),
+  playNoDouble: () => soundManager.playNoDoubleSound(),
   playPass: () => soundManager.playPassSound(),
   playDeal: () => soundManager.playDealSound(),
+  playStart: () => soundManager.playStartSound(),
+  playQuickChat: (soundFile: string) => soundManager.playQuickChatSound(soundFile),
   playGameMusic: () => soundManager.playBackgroundMusic('game'),
   playLobbyMusic: () => soundManager.playBackgroundMusic('lobby'),
   stopMusic: () => soundManager.stopBackgroundMusic(),
@@ -93,8 +105,14 @@ export function useAudio(soundEnabled: boolean, musicEnabled: boolean): UseAudio
     playLose: stableCallbacks.playLose,
     playTick: stableCallbacks.playTick,
     playBid: stableCallbacks.playBid,
+    playBidScore: stableCallbacks.playBidScore,
+    playNoBid: stableCallbacks.playNoBid,
+    playDouble: stableCallbacks.playDouble,
+    playNoDouble: stableCallbacks.playNoDouble,
     playPass: stableCallbacks.playPass,
     playDeal: stableCallbacks.playDeal,
+    playStart: stableCallbacks.playStart,
+    playQuickChat: stableCallbacks.playQuickChat,
     playGameMusic: stableCallbacks.playGameMusic,
     playLobbyMusic: stableCallbacks.playLobbyMusic,
     stopMusic: stableCallbacks.stopMusic,

@@ -75,6 +75,9 @@ export class SoundManager {
       lose: '/sounds/lose.mp3',
       tick: '/sounds/tick.mp3',
       bid: '/sounds/order.mp3',
+      noorder: '/sounds/noorder.mp3',
+      jiabei1: '/sounds/jiabei1.mp3',
+      jiabei0: '/sounds/jiabei0.mp3',
       pass: '/sounds/buyao1.mp3',
       deal: '/sounds/deal.mp3',
       start: '/sounds/start.mp3',
@@ -260,10 +263,41 @@ export class SoundManager {
   }
 
   /**
+   * 播放叫分音效（根据分数）
+   */
+  playBidScoreSound(score: number) {
+    // 1分、2分、3分都播放叫地主音效
+    if (score >= 1 && score <= 3) {
+      this.play('bid')
+    }
+  }
+
+  /**
    * 播放叫分音效
    */
   playBidSound() {
     this.play('bid')
+  }
+
+  /**
+   * 播放不叫音效
+   */
+  playNoBidSound() {
+    this.play('noorder')
+  }
+
+  /**
+   * 播放加倍音效
+   */
+  playDoubleSound() {
+    this.play('jiabei1')
+  }
+
+  /**
+   * 播放不加倍音效
+   */
+  playNoDoubleSound() {
+    this.play('jiabei0')
   }
 
   /**
@@ -278,6 +312,21 @@ export class SoundManager {
    */
   playDealSound() {
     this.play('deal')
+  }
+
+  /**
+   * 播放游戏开始音效
+   */
+  playStartSound() {
+    this.play('start')
+  }
+
+  /**
+   * 播放快捷语语音
+   * @param soundFile 音频文件路径
+   */
+  playQuickChatSound(soundFile: string) {
+    this.play(soundFile)
   }
 
   /**

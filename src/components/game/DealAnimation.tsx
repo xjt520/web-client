@@ -12,6 +12,7 @@ interface PlayerDealInfo {
 interface DealAnimationProps {
   playerHands: PlayerDealInfo[]
   landlordCards: number[]
+  landlordCardsRevealed: boolean
   onComplete: () => void
   enabled: boolean
   audio?: {
@@ -41,6 +42,7 @@ const LANDLORD_CARD_INTERVAL = 200
 export function DealAnimation({
   playerHands,
   landlordCards,
+  landlordCardsRevealed,
   onComplete,
   enabled,
   audio
@@ -229,7 +231,7 @@ export function DealAnimation({
                 >
                   {revealedLandlordCards[i] !== undefined && landlordCards[i] !== undefined ? (
                     <div className="landlord-card-flip">
-                      <CardDisplay card={landlordCards[i]} />
+                      <CardDisplay card={landlordCards[i]} faceDown={!landlordCardsRevealed} />
                     </div>
                   ) : (
                     <div className="card-back mystery">
@@ -241,7 +243,7 @@ export function DealAnimation({
             </div>
           )}
 
-          {phase === 'landlord-deal' && (
+          {phase === 'landlord-deal' && landlordCardsRevealed && (
             <div className="landlord-cards-falling">
               {landlordCards.slice(0, landlordDealIndex + 1).map((card, i) => (
                 <div

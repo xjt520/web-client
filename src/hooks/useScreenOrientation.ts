@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 interface ScreenOrientation {
   isLandscape: boolean
@@ -11,6 +11,26 @@ interface ScreenOrientation {
   isTouch: boolean            // 触摸设备
   screenWidth: number
   screenHeight: number
+}
+
+function getOrientationState(): ScreenOrientation {
+  const width = window.innerWidth
+  const height = window.innerHeight
+  const isLandscape = width > height
+  const isTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches
+
+  return {
+    isLandscape,
+    isPortrait: !isLandscape,
+    isMobileLandscape: isLandscape && height <= 500,
+    isMobilePortrait: !isLandscape && width <= 640,
+    isMobileLandscapeSm: isLandscape && height <= 400,
+    isSmallScreen: height <= 768,
+    isCompactScreen: height <= 600,
+    isTouch,
+    screenWidth: width,
+    screenHeight: height,
+  }
 }
 
 /**
@@ -33,62 +53,33 @@ export function useScreenOrientation(): ScreenOrientation {
         screenHeight: 768,
       }
     }
-
-    const width = window.innerWidth
-    const height = window.innerHeight
-    const isTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches
-
-    return {
-      isLandscape: width > height,
-      isPortrait: width <= height,
-      isMobileLandscape: width > height && height <= 500,
-      isMobilePortrait: width <= 640 && width <= height,
-      isMobileLandscapeSm: width > height && height <= 400,
-      isSmallScreen: height <= 768,
-      isCompactScreen: height <= 600,
-      isTouch,
-      screenWidth: width,
-      screenHeight: height,
-    }
+    return getOrientationState()
   })
 
+  const updateState = useCallback(() => {
+    setState(getOrientationState())
+  }, [])
+
   useEffect(() => {
-    const updateState = () => {
-      const width = window.innerWidth
-      const height = window.innerHeight
-      const isTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches
+    updateState()
 
-      setState({
-        isLandscape: width > height,
-        isPortrait: width <= height,
-        isMobileLandscape: width > height && height <= 500,
-        isMobilePortrait: width <= 640 && width <= height,
-        isMobileLandscapeSm: width > height && height <= 400,
-        isSmallScreen: height <= 768,
-        isCompactScreen: height <= 600,
-        isTouch,
-        screenWidth: width,
-        screenHeight: height,
-      })
-    }
-
-    // 监听 resize 和 orientationchange
     window.addEventListener('resize', updateState)
     window.addEventListener('orientationchange', updateState)
 
-    // 媒体查询监听
+    // 现代浏览器使用 screen.orientation API
+    const screenOrientation = screen?.orientation
+    screenOrientation?.addEventListener('change', updateState)
+
     const touchMedia = window.matchMedia('(hover: none) and (pointer: coarse)')
     touchMedia.addEventListener('change', updateState)
-
-    // 初始化时执行一次
-    updateState()
 
     return () => {
       window.removeEventListener('resize', updateState)
       window.removeEventListener('orientationchange', updateState)
+      screenOrientation?.removeEventListener('change', updateState)
       touchMedia.removeEventListener('change', updateState)
     }
-  }, [])
+  }, [updateState])
 
   return state
 }

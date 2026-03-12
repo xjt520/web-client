@@ -96,6 +96,12 @@ export const GameResult = __t.object("GameResult", {
 });
 export type GameResult = __Infer<typeof GameResult>;
 
+export const HiddenLandlordCards = __t.object("HiddenLandlordCards", {
+  roomId: __t.u64(),
+  cards: __t.byteArray(),
+});
+export type HiddenLandlordCards = __Infer<typeof HiddenLandlordCards>;
+
 export const LandlordCards = __t.object("LandlordCards", {
   roomId: __t.u64(),
   cards: __t.byteArray(),
@@ -144,6 +150,16 @@ export const Play = __t.object("Play", {
   timestamp: __t.timestamp(),
 });
 export type Play = __Infer<typeof Play>;
+
+export const PlayerActionEvent = __t.object("PlayerActionEvent", {
+  id: __t.u64(),
+  roomId: __t.u64(),
+  playerIdentity: __t.identity(),
+  actionType: __t.string(),
+  actionData: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type PlayerActionEvent = __Infer<typeof PlayerActionEvent>;
 
 export const PlayerHand = __t.object("PlayerHand", {
   id: __t.u64(),

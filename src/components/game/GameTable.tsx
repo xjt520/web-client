@@ -18,7 +18,6 @@ import './StreakEffect.css'
 import { AchievementNotification } from './AchievementNotification'
 import './AchievementNotification.css'
 import { useAchievements } from '../../hooks/useAchievements'
-import { DemoPanel } from './AchievementDemo'
 import { ActionType } from './PlayerActionTimer'
 import { OrientationPrompt } from './OrientationPrompt'
 import { FullscreenToggle } from './FullscreenToggle'
@@ -40,7 +39,7 @@ import { useChat } from '../../hooks/useChat'
 import { EmojiType, type QuickChatMessage } from '../../lib/emotes'
 import { getTheme, type ThemeId } from '../../config/themes'
 import type { DbConnection } from '../../lib/spacetime'
-import type { Room, Game, PlayerHand as PlayerHandType, RoomPlayer, CurrentPlay, LandlordCards as LandlordCardsType, Bid, Doubling, GameResult, Play } from '../../module_bindings/types'
+import type { Room, Game, PlayerHand as PlayerHandType, RoomPlayer, CurrentPlay, LandlordCards as LandlordCardsType, Bid, Doubling, GameResult, Play, PlayerActionEvent } from '../../module_bindings/types'
 import type { Timestamp } from 'spacetimedb'
 import type { EventContext } from '../../module_bindings'
 
@@ -57,10 +56,16 @@ interface GameTableProps {
     playLose: () => void
     playTick: () => void
     playBid: () => void
+    playBidScore: (score: number) => void
+    playNoBid: () => void
+    playDouble: () => void
+    playNoDouble: () => void
     playPass: () => void
     playDeal: () => void
+    playStart: () => void
     playGameMusic: () => void
     stopMusic: () => void
+    playQuickChat: (soundFile: string) => void
   }
   onFirstInteraction?: () => void
   tableTheme?: ThemeId
@@ -77,6 +82,7 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
   const [doublings, setDoublings] = useState<Doubling[]>([])
   const [gameResults, setGameResults] = useState<GameResult[]>([])
   const [plays, setPlays] = useState<Play[]>([])
+  const [actionEvents, setActionEvents] = useState<PlayerActionEvent[]>([])
   const [showEndGameConfirm, setShowEndGameConfirm] = useState(false)
 
   // 叫分/加倍确认对话框状态
@@ -101,6 +107,7 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
   const processedDoublingIds = useRef<Set<string>>(new Set())
   const processedGameResultIds = useRef<Set<string>>(new Set())
   const processedPlayIds = useRef<Set<string>>(new Set())
+  const processedActionEventIds = useRef<Set<string>>(new Set())
   const lastPlayedCards = useRef<string | null>(null)
 
   const { selectedCards, toggleCard, clearSelection, getSelectedCards, isSelected, setSelection } = useCardSelection()
@@ -122,10 +129,6 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0)
   const prevUnlockedRef = useRef<string[]>([])
 
-  // 演示面板状态 (开发模式)
-  const [demoMode, setDemoMode] = useState(false)
-  const [demoStreak, setDemoStreak] = useState<number | null>(null)
-
   // 超时自动托管提示
   const [showAutoTrust, setShowAutoTrust] = useState(false)
 
@@ -135,10 +138,13 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
   }, [onFirstInteraction])
 
   // 屏幕方向检测
-  const { isMobileLandscape, isCompactScreen } = useScreenOrientation()
+  const { isMobileLandscape, isCompactScreen, isMobilePortrait, isTouch } = useScreenOrientation()
 
   // 紧凑布局模式（移动端横屏或小屏幕电脑）
   const isCompactLayout = isMobileLandscape || isCompactScreen
+
+  // 是否显示横屏提示（此时隐藏重复的按钮）
+  const showOrientationPrompt = isTouch && isMobilePortrait
 
   useEffect(() => {
     if (!conn) return
@@ -157,9 +163,7 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
     db.room_player.onDelete((_ctx: EventContext, player: RoomPlayer) => {
       const playerId = `${player.roomId}-${player.playerIdentity.toHexString()}`
       processedPlayerIds.current.delete(playerId)
-      setPlayers((prev) =>
-        prev.filter((p) => `${p.roomId}-${p.playerIdentity.toHexString()}` !== playerId)
-      )
+      setPlayers((prev) => prev.filter((p) => `${p.roomId}-${p.playerIdentity.toHexString()}` !== playerId))
     })
 
     db.room_player.onUpdate((_ctx: EventContext, _oldPlayer: RoomPlayer, newPlayer: RoomPlayer) => {
@@ -179,9 +183,13 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
       }
     })
 
-    db.game.onUpdate((_ctx: EventContext, _oldGame: Game, newGame: Game) => {
-      if (newGame.roomId.toString() === roomId.toString()) {
-        setGame(newGame)
+    db.game.onUpdate((_ctx: EventContext, oldGame: Game, newGame: Game) => {
+      if (newGame.roomId.toString() !== roomId.toString()) return
+      setGame(newGame)
+
+      // 游戏开始音效：从加倍阶段进入出牌阶段
+      if (oldGame.status === 'doubling' && newGame.status === 'playing') {
+        audio?.playStart()
       }
     })
 
@@ -322,6 +330,43 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
       setPlays((prev) => prev.filter((p) => p.id.toString() !== playId))
     })
 
+    // PlayerActionEvent 表监听 - 用于播放其他玩家的动作音效
+    db.player_action_event.onInsert((_ctx: EventContext, event: PlayerActionEvent) => {
+      if (event.roomId.toString() !== roomId.toString()) return
+      const eventId = event.id.toString()
+      if (processedActionEventIds.current.has(eventId)) return
+      processedActionEventIds.current.add(eventId)
+
+      // 添加到 actionEvents state
+      setActionEvents((prev) => [...prev, event])
+
+      // 只播放其他玩家的音效（自己的音效在 reducer 调用时已经播放）
+      if (conn?.identity && event.playerIdentity.toHexString() !== conn.identity.toHexString()) {
+        switch (event.actionType) {
+          case 'bid':
+            try {
+              const data = JSON.parse(event.actionData)
+              audio?.playBidScore(data.bidValue)
+            } catch {
+              audio?.playBid()
+            }
+            break
+          case 'no_bid':
+            audio?.playNoBid()
+            break
+          case 'double':
+            audio?.playDouble()
+            break
+          case 'no_double':
+            audio?.playNoDouble()
+            break
+          case 'pass':
+            audio?.playPass()
+            break
+        }
+      }
+    })
+
     conn.subscriptionBuilder()
       .onApplied(() => {
         const initialPlayers = Array.from(db.room_player.iter()) as unknown as RoomPlayer[]
@@ -396,6 +441,14 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
         )
         roomPlays.forEach((p) => processedPlayIds.current.add(p.id.toString()))
         setPlays(roomPlays)
+
+        // 初始化 PlayerActionEvent（跳过已有的事件，避免重复播放音效）
+        const initialActionEvents = Array.from(db.player_action_event.iter()) as unknown as PlayerActionEvent[]
+        const roomActionEvents = initialActionEvents.filter(
+          (e) => e.roomId.toString() === roomId.toString()
+        )
+        roomActionEvents.forEach((e) => processedActionEventIds.current.add(e.id.toString()))
+        setActionEvents(roomActionEvents)
       })
       .subscribe([
         'SELECT * FROM room_player',
@@ -407,6 +460,7 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
         'SELECT * FROM doubling',
         'SELECT * FROM game_result',
         'SELECT * FROM play',
+        'SELECT * FROM player_action_event',
       ])
   }, [conn, room.id])
 
@@ -425,6 +479,22 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
       setShowDealAnimation(true)
     }
   }, [game?.status, room.status, allHands.length, landlordCards])
+
+  // 新游戏开始时清除出牌历史（从 finished 变为 bidding）
+  const prevGameStatusForHistoryRef = useRef<string | null>(null)
+  useEffect(() => {
+    const gameStatus = game?.status || room.status
+    const prevStatus = prevGameStatusForHistoryRef.current
+    prevGameStatusForHistoryRef.current = gameStatus
+
+    // 从 finished 变为 bidding 时清除历史
+    if (prevStatus === 'finished' && gameStatus === 'bidding') {
+      setPlays([])
+      setActionEvents([])
+      processedPlayIds.current.clear()
+      processedActionEventIds.current.clear()
+    }
+  }, [game?.status, room.status])
 
   // 人机模式AI自动行动
   useAiAutoAction({
@@ -540,9 +610,11 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
 
     try {
       conn.reducers.placeBid({ roomId: room.id, bidValue: bidConfirm.value })
-      // 播放叫分音效（如果叫分大于0）
+      // 播放叫分/不叫音效
       if (bidConfirm.value > 0) {
-        audio?.playBid()
+        audio?.playBidScore(bidConfirm.value)
+      } else {
+        audio?.playNoBid()
       }
       setBidConfirm(null)
     } catch (err) {
@@ -563,6 +635,12 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
 
     try {
       conn.reducers.doubleBet({ roomId: room.id, double: doubleConfirm.double })
+      // 播放加倍/不加倍音效
+      if (doubleConfirm.double) {
+        audio?.playDouble()
+      } else {
+        audio?.playNoDouble()
+      }
       setDoubleConfirm(null)
     } catch (err) {
       console.error('Double error:', err)
@@ -715,8 +793,10 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
   const handleSelectQuickChat = useCallback((message: QuickChatMessage) => {
     if (!conn?.identity) return
     sendChatMessage('text', message.text)
+    // 播放快捷语语音
+    audio?.playQuickChat(message.soundFile)
     setShowQuickChat(false)
-  }, [conn?.identity, sendChatMessage])
+  }, [conn?.identity, sendChatMessage, audio])
 
   // 获取玩家的聊天消息
   const getPlayerChatMessage = useCallback((playerIdentity: string) => {
@@ -910,6 +990,7 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
             cardCount: 17
           }))}
           landlordCards={landlordCards ? Array.from(landlordCards.cards) : []}
+          landlordCardsRevealed={landlordCards?.revealed ?? false}
           onComplete={() => setShowDealAnimation(false)}
           enabled={showDealAnimation}
           audio={audio}
@@ -939,8 +1020,8 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
               ← 离开
             </button>
 
-            {/* 横屏切换按钮 */}
-            <FullscreenToggle />
+            {/* 横屏切换按钮（横屏提示显示时隐藏，避免重复） */}
+            {!showOrientationPrompt && <FullscreenToggle />}
 
             {(isBidding || isDoubling || isPlaying) && (
               <button
@@ -960,7 +1041,12 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
             )}
 
             {(isDoubling || isPlaying || isFinished) && (
-              <PlayHistory plays={plays} players={players} />
+              <PlayHistory 
+                plays={plays} 
+                players={players}
+                actionEvents={actionEvents}
+                landlordSeat={game?.landlordSeat}
+              />
             )}
           </div>
 
@@ -1278,12 +1364,11 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
         />
 
         {/* 连胜特效 */}
-        {(showStreakEffect || demoStreak !== null) && (
+        {showStreakEffect && (
           <StreakEffect
-            streak={demoStreak ?? achievements.streak.current}
+            streak={achievements.streak.current}
             onComplete={() => {
               setShowStreakEffect(false)
-              setDemoStreak(null)
             }}
           />
         )}
@@ -1302,26 +1387,7 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
           onComplete={() => setShowAutoTrust(false)}
         />
 
-        {/* 开发模式演示面板 */}
-        {demoMode && (
-          <DemoPanel
-            onTriggerStreak={(streak) => {
-              setDemoStreak(streak)
-            }}
-            onTriggerAchievement={(badge) => {
-              setNewAchievements([badge])
-              setCurrentAchievementIndex(0)
-            }}
-          />
-        )}
 
-        {/* 开发模式切换按钮 */}
-        <button
-          onClick={() => setDemoMode(!demoMode)}
-          className="fixed bottom-4 right-4 z-50 px-3 py-1.5 bg-purple-600/80 text-white text-xs rounded-lg shadow-lg hover:bg-purple-700 transition-colors"
-        >
-          {demoMode ? '✕ 关闭演示' : '🎮 演示'}
-        </button>
       </div>
       </GestureHandler>
     </div>

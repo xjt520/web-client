@@ -85,6 +85,7 @@ import LandlordCardsRow from "./landlord_cards_table";
 import MatchQueueRow from "./match_queue_table";
 import MatchRecordRow from "./match_record_table";
 import PlayRow from "./play_table";
+import PlayerActionEventRow from "./player_action_event_table";
 import PlayerHandRow from "./player_hand_table";
 import ReportRow from "./report_table";
 import RoomRow from "./room_table";
@@ -228,6 +229,20 @@ const tablesSchema = __schema({
       { name: 'play_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, PlayRow),
+  player_action_event: __table({
+    name: 'player_action_event',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { name: 'room_id', algorithm: 'btree', columns: [
+        'roomId',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_action_event_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, PlayerActionEventRow),
   player_hand: __table({
     name: 'player_hand',
     indexes: [

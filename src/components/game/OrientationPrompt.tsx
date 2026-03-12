@@ -1,4 +1,5 @@
 import { useScreenOrientation } from '../../hooks/useScreenOrientation'
+import { FullscreenToggle } from './FullscreenToggle'
 
 /**
  * 横屏提示组件
@@ -18,7 +19,10 @@ export function OrientationPrompt() {
         📱
       </div>
       <p className="text-xl mb-2 font-medium">请旋转设备至横屏</p>
-      <p className="text-gray-400 text-sm">以获得最佳游戏体验</p>
+      <p className="text-gray-400 text-sm mb-6">以获得最佳游戏体验</p>
+      <div className="z-[101]">
+        <FullscreenToggle />
+      </div>
     </div>
   )
 }

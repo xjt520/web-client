@@ -58,7 +58,7 @@ export function QuickChat({ position, onSelect, onClose }: QuickChatProps) {
       <div className="quick-chat-list">
         {QUICK_CHAT_MESSAGES.map((msg) => (
           <button
-            key={msg.text}
+            key={msg.id}
             className="quick-chat-item"
             onClick={() => handleItemClick(msg)}
           >
