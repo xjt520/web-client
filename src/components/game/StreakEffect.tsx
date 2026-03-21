@@ -107,13 +107,7 @@ export function StreakEffect({ streak, onComplete }: StreakEffectProps) {
         </div>
       )}
 
-      {/* 10连胜全服公告 */}
-      {streak >= 10 && (
-        <div className="streak-announcement">
-          <span className="announcement-icon">📢</span>
-          <span className="announcement-text">全服公告</span>
-        </div>
-      )}
+
     </div>
   )
 }

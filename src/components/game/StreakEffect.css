@@ -191,49 +191,6 @@
   }
 }
 
-.streak-announcement {
-  position: absolute;
-  bottom: 100px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  background: rgba(0, 0, 0, 0.8);
-  border: 2px solid #ffd700;
-  border-radius: 30px;
-  animation: announcement-bounce 0.5s ease-out 0.5s both;
-}
-
-.announcement-icon {
-  font-size: 1.5rem;
-  animation: icon-shake 0.5s ease-in-out infinite;
-}
-
-.announcement-text {
-  color: #ffd700;
-  font-weight: bold;
-  font-size: 1.1rem;
-}
-
-@keyframes announcement-bounce {
-  0% {
-    transform: translateY(50px);
-    opacity: 0;
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes icon-shake {
-  0%, 100% { transform: rotate(-5deg); }
-  50% { transform: rotate(5deg); }
-}
-
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }

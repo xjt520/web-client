@@ -209,25 +209,15 @@ export default function App() {
     )
   }
 
-  // Show game table when game is in bidding, doubling or playing status
-  if (currentRoom && (gameStatus === 'bidding' || gameStatus === 'doubling' || gameStatus === 'playing')) {
+  // Show game table when game is in bidding, doubling, playing or finished status
+  // (finished status shows remaining cards on game table)
+  if (currentRoom && (gameStatus === 'bidding' || gameStatus === 'doubling' || gameStatus === 'playing' || gameStatus === 'finished')) {
     return (
       <GameTable
         room={currentRoom}
         getConnection={() => getConnection() as DbConnection | null}
         audio={audio}
         onFirstInteraction={initializeAudio}
-        tableTheme={tableTheme}
-      />
-    )
-  }
-
-  // 游戏结束后显示等待室（可以继续下一局）
-  if (currentRoom && gameStatus === 'finished') {
-    return (
-      <WaitingRoom
-        room={currentRoom}
-        getConnection={() => getConnection() as DbConnection | null}
         tableTheme={tableTheme}
       />
     )

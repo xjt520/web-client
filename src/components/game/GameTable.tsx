@@ -3,7 +3,6 @@ import { PlayerHand } from './PlayerHand'
 import { OpponentHand } from './OpponentHand'
 import { PlayArea } from './PlayArea'
 import { LandlordCards } from './LandlordCards'
-import { GameResultModal } from './GameResultModal'
 import { TrustControl } from './TrustControl'
 import { PlayHistory } from './PlayHistory'
 import { ToastContainer } from '../common/ToastContainer'
@@ -13,10 +12,6 @@ import { CombinationPreview } from './CombinationPreview'
 import { DealAnimation } from './DealAnimation'
 import { GestureHandler } from './GestureHandler'
 import './GestureHandler.css'
-import { StreakEffect } from './StreakEffect'
-import './StreakEffect.css'
-import { AchievementNotification } from './AchievementNotification'
-import './AchievementNotification.css'
 import { useAchievements } from '../../hooks/useAchievements'
 import { ActionType } from './PlayerActionTimer'
 import { OrientationPrompt } from './OrientationPrompt'
@@ -25,13 +20,14 @@ import { EmojiWheel } from './EmojiWheel'
 import { QuickChat } from './QuickChat'
 import { CombinationEffects, useCardEffects } from './CombinationEffects'
 import './CombinationEffects.css'
-import { GameEndTransition, type GameEndReason } from './GameEndTransition'
 import { AutoTrustNotification } from './AutoTrustNotification'
 import './PhasedTimer.css'
 import { useCardSelection } from '../../hooks/useCardSelection'
 import { useCardHint } from '../../hooks/useCardHint'
 import { useToast } from '../../hooks/useToast'
 import { useAiAutoAction } from '../../hooks/useAiAutoAction'
+import { useDouzero, getPlayerPosition } from '../../hooks/useDouzero'
+import { AISuggestionBadge } from './AISuggestionPanel'
 import { useScreenOrientation } from '../../hooks/useScreenOrientation'
 import { useGameDuration, formatDuration, getGameStatusText } from '../../hooks/useGameDuration'
 import { useTurnTimer } from '../../hooks/useTurnTimer'
@@ -96,11 +92,9 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
   // 主题配置
   const theme = getTheme(tableTheme)
 
-  // 游戏结束过渡动画状态
-  const [showGameEndTransition, setShowGameEndTransition] = useState(false)
-  const [gameEndReason, setGameEndReason] = useState<GameEndReason>('none')
-  const [showGameResultModal, setShowGameResultModal] = useState(false)
-  const prevGameStatusRef = useRef<string | null>(null)
+  // 游戏结束时保存手牌快照，用于显示剩余手牌
+  const finishedHandsRef = useRef<PlayerHandType[]>([])
+  const isGameFinishedRef = useRef(false)
 
   const processedPlayerIds = useRef<Set<string>>(new Set())
   const processedBidIds = useRef<Set<string>>(new Set())
@@ -109,6 +103,7 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
   const processedPlayIds = useRef<Set<string>>(new Set())
   const processedActionEventIds = useRef<Set<string>>(new Set())
   const lastPlayedCards = useRef<string | null>(null)
+  const hasRecordedAchievement = useRef(false)
 
   const { selectedCards, toggleCard, clearSelection, getSelectedCards, isSelected, setSelection } = useCardSelection()
   const { toasts, removeToast, error, success, warning, info } = useToast()
@@ -119,15 +114,8 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
 
   // 成就系统
   const {
-    achievements,
-    recordGameResult,
-    getStreakLevel,
-    badges
+    recordGameResult
   } = useAchievements()
-  const [showStreakEffect, setShowStreakEffect] = useState(false)
-  const [newAchievements, setNewAchievements] = useState<typeof badges>([])
-  const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0)
-  const prevUnlockedRef = useRef<string[]>([])
 
   // 超时自动托管提示
   const [showAutoTrust, setShowAutoTrust] = useState(false)
@@ -231,12 +219,17 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
 
     db.player_hand.onDelete((_ctx: EventContext, hand: PlayerHandType) => {
       if (hand.roomId.toString() !== roomId.toString()) return
-      
+
+      // 游戏结束时保留手牌用于显示
+      if (isGameFinishedRef.current) {
+        return
+      }
+
       // 从所有手牌列表中移除
       setAllHands((prev) =>
         prev.filter((h) => h.playerIdentity.toHexString() !== hand.playerIdentity.toHexString())
       )
-      
+
       // 如果删除的是当前用户的手牌，清空
       if (conn.identity && hand.playerIdentity.toHexString() === conn.identity.toHexString()) {
         setMyHand(null)
@@ -493,6 +486,10 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
       setActionEvents([])
       processedPlayIds.current.clear()
       processedActionEventIds.current.clear()
+      // 清空手牌快照和重置状态
+      finishedHandsRef.current = []
+      isGameFinishedRef.current = false
+      hasRecordedAchievement.current = false
     }
   }, [game?.status, room.status])
 
@@ -501,7 +498,14 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
     getConnection,
     roomId: room.id,
     isAiMode: room.isAiMode || false,
-    gameStatus: game?.status || 'waiting',
+    game,
+    players,
+    allHands,
+    currentPlay,
+    landlordCards,
+    bids,
+    doublings,
+    plays,
   })
 
   const isMyTurn = useCallback(() => {
@@ -530,6 +534,27 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
     currentPlay: currentPlay ? Array.from(currentPlay.cards) : null,
     isMyTurn: isMyTurn(),
   })
+
+  // DouZero AI Hook
+  const {
+    isAvailable: isDouzeroAvailable,
+    isLoading: isDouzeroLoading,
+    lastBidSuggestion,
+    lastDoubleSuggestion,
+    lastPlaySuggestion,
+    getBidSuggestion: fetchBidSuggestion,
+    getDoubleSuggestion: fetchDoubleSuggestion,
+    getPlaySuggestion: fetchPlaySuggestion,
+    clearPlaySuggestion,
+  } = useDouzero()
+
+  // 当回合变化时清除出牌建议，确保每次新回合都能获取新建议
+  useEffect(() => {
+    // 不是我的回合时清除建议
+    if (!isMyTurn()) {
+      clearPlaySuggestion()
+    }
+  }, [isMyTurn, clearPlaySuggestion])
 
   // 聊天系统 Hook - 通过 SpacetimeDB 同步
   const { messages: chatMessages, sendChatMessage } = useChat(getConnection, room.id)
@@ -728,11 +753,31 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
     return hand?.cards.length ?? 17
   }, [allHands])
 
+  // 获取对手的手牌（用于游戏结束时明牌展示）
+  const getOpponentCards = useCallback((playerIdentity: string): number[] => {
+    // 优先使用保存的手牌快照
+    const handsToUse = finishedHandsRef.current.length > 0 ? finishedHandsRef.current : allHands
+    const hand = handsToUse.find(h => h.playerIdentity.toHexString() === playerIdentity)
+    return hand ? Array.from(hand.cards) : []
+  }, [allHands])
+
   const gameStatus = game?.status || room.status
   const isBidding = gameStatus === 'bidding'
   const isDoubling = gameStatus === 'doubling'
   const isPlaying = gameStatus === 'playing'
   const isFinished = gameStatus === 'finished'
+
+  // 获取当前玩家用于显示的手牌（游戏结束时使用快照）
+  const displayMyHand = useMemo(() => {
+    const myIdentity = conn?.identity
+    if (isFinished && finishedHandsRef.current.length > 0 && myIdentity) {
+      const hand = finishedHandsRef.current.find(
+        h => h.playerIdentity.toHexString() === myIdentity.toHexString()
+      )
+      return hand || myHand
+    }
+    return myHand
+  }, [isFinished, myHand, conn?.identity])
 
   // 确定当前操作类型
   const currentActionType: ActionType | null = useMemo(() => {
@@ -745,6 +790,8 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
   // 获取当前回合的玩家（用于显示倒计时）
   const getCurrentTurnSeat = useCallback(() => {
     if (!game) return null
+    // 游戏结束时不再显示倒计时
+    if (isFinished) return null
     if (isPlaying) return game.currentTurn
     if (isDoubling && game.currentDoublingTurn !== null) return game.currentDoublingTurn
     // 叫分阶段按座位顺序
@@ -754,7 +801,7 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
       return bidCount % 3
     }
     return null
-  }, [game, isPlaying, isDoubling, isBidding, bids.length])
+  }, [game, isPlaying, isDoubling, isBidding, isFinished, bids.length])
 
   const currentTurnSeat = getCurrentTurnSeat()
 
@@ -764,6 +811,179 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
   const isMyPlayerTurn = myPlayer && currentTurnSeat === myPlayer.seatIndex
 
   const canPass = isPlaying && isMyTurn() && currentPlay !== null
+
+  // ========== DouZero AI 建议功能 ==========
+
+  // AI 日志函数（静默，不输出）
+  const logAi = useCallback((_message: string, _data?: unknown) => {
+    // 调试时取消下面注释:
+    // console.log('[GameTable AI]', new Date().toISOString(), _message, _data ?? '')
+  }, [])
+
+  // 获取 AI 叫分建议
+  useEffect(() => {
+    logAi('叫分建议 Effect 触发', {
+      isBidding,
+      hasMyHand: !!myHand,
+      isDouzeroAvailable,
+      hasLastBidSuggestion: !!lastBidSuggestion,
+      myCards: myHand ? Array.from(myHand.cards) : null,
+    })
+
+    if (isBidding && myHand && isDouzeroAvailable && !lastBidSuggestion) {
+      logAi('开始获取叫分建议, 手牌:', Array.from(myHand.cards))
+      fetchBidSuggestion(Array.from(myHand.cards))
+    } else {
+      logAi('跳过获取叫分建议', {
+        reason: !isBidding ? '不在叫分阶段' :
+                !myHand ? '没有手牌' :
+                !isDouzeroAvailable ? 'AI不可用' :
+                '已有建议'
+      })
+    }
+  }, [isBidding, myHand, isDouzeroAvailable, lastBidSuggestion, fetchBidSuggestion, logAi])
+
+  // 获取 AI 加倍建议
+  useEffect(() => {
+    logAi('加倍建议 Effect 触发', {
+      isDoubling,
+      hasMyHand: !!myHand,
+      isDouzeroAvailable,
+      isMyDoublingTurn: isMyDoublingTurn(),
+      hasLastDoubleSuggestion: !!lastDoubleSuggestion,
+    })
+
+    if (isDoubling && myHand && isDouzeroAvailable && isMyDoublingTurn() && !lastDoubleSuggestion) {
+      logAi('开始获取加倍建议', {
+        cards: Array.from(myHand.cards),
+        isLandlord: myHand.isLandlord,
+        landlordCards: landlordCards ? Array.from(landlordCards.cards) : null,
+      })
+      fetchDoubleSuggestion(
+        Array.from(myHand.cards),
+        myHand.isLandlord,
+        landlordCards ? Array.from(landlordCards.cards) : undefined
+      )
+    } else {
+      logAi('跳过获取加倍建议', {
+        reason: !isDoubling ? '不在加倍阶段' :
+                !myHand ? '没有手牌' :
+                !isDouzeroAvailable ? 'AI不可用' :
+                !isMyDoublingTurn() ? '不是我的加倍回合' :
+                '已有建议'
+      })
+    }
+  }, [isDoubling, myHand, isDouzeroAvailable, isMyDoublingTurn, lastDoubleSuggestion, fetchDoubleSuggestion, landlordCards, logAi])
+
+  // 获取 AI 出牌建议
+  useEffect(() => {
+    logAi('出牌建议 Effect 触发', {
+      isPlaying,
+      hasMyHand: !!myHand,
+      isDouzeroAvailable,
+      isMyTurn: isMyTurn(),
+      landlordSeat: game?.landlordSeat,
+      hasLastPlaySuggestion: !!lastPlaySuggestion,
+    })
+
+    if (isPlaying && myHand && isDouzeroAvailable && isMyTurn() && game?.landlordSeat !== undefined && !lastPlaySuggestion) {
+      const myPosition = getPlayerPosition(mySeatIndex, game.landlordSeat)
+      if (!myPosition) {
+        logAi('跳过获取出牌建议: 无法确定玩家位置', { mySeatIndex, landlordSeat: game.landlordSeat })
+        return
+      }
+      const landlordCardsArray = landlordCards ? Array.from(landlordCards.cards) : []
+
+      // 构建已出的牌（根据位置）- 使用 plays 表而不是手牌
+      const playedCardsData = buildPlayedCardsForSuggestion(plays, players, game.landlordSeat)
+
+      // 构建需要跟的牌（最近5手）
+      // - 如果 currentPlay 为空，说明是新一轮首家，可以自由出牌
+      // - 如果 currentPlay 是自己出的，说明新一轮开始，可以自由出牌
+      // - 否则需要跟牌，取最近5手牌
+      const myIdentity = conn?.identity?.toHexString()
+      const isFirstInRound = !currentPlay || currentPlay.playerIdentity.toHexString() === myIdentity
+      const lastMoves = isFirstInRound
+        ? []
+        : plays.slice(-5).map(p => Array.from(p.cards))
+
+      // 计算各位置剩余牌数
+      const numCardsLeft = buildNumCardsLeftForSuggestion(allHands, players, game.landlordSeat)
+
+      logAi('开始获取出牌建议', {
+        myCards: Array.from(myHand.cards),
+        myPosition,
+        mySeatIndex,
+        landlordSeat: game.landlordSeat,
+        playedCards: playedCardsData,
+        lastMoves,
+        landlordCards: landlordCardsArray,
+        numCardsLeft,
+      })
+
+      fetchPlaySuggestion({
+        myCards: Array.from(myHand.cards),
+        position: myPosition,
+        playedCards: playedCardsData,
+        lastMoves,
+        landlordCards: landlordCardsArray,
+        numCardsLeft,
+      })
+    } else {
+      logAi('跳过获取出牌建议', {
+        reason: !isPlaying ? '不在出牌阶段' :
+                !myHand ? '没有手牌' :
+                !isDouzeroAvailable ? 'AI不可用' :
+                !isMyTurn() ? '不是我的回合' :
+                game?.landlordSeat === undefined ? '地主座位未确定' :
+                '已有建议'
+      })
+    }
+  }, [isPlaying, myHand, isDouzeroAvailable, isMyTurn, game?.landlordSeat, mySeatIndex, lastPlaySuggestion, fetchPlaySuggestion, landlordCards, players, plays, currentPlay, conn, allHands, logAi])
+
+  // 应用 AI 叫分建议
+  const handleApplyAiBid = useCallback(() => {
+    logAi('应用 AI 叫分建议', {
+      hasSuggestion: !!lastBidSuggestion,
+      suggestedBid: lastBidSuggestion?.suggestedBid,
+    })
+    if (lastBidSuggestion && lastBidSuggestion.suggestedBid !== undefined) {
+      logAi('执行叫分:', lastBidSuggestion.suggestedBid)
+      handleBidClick(lastBidSuggestion.suggestedBid)
+    }
+  }, [lastBidSuggestion, handleBidClick, logAi])
+
+  // 应用 AI 加倍建议
+  const handleApplyAiDouble = useCallback(() => {
+    logAi('应用 AI 加倍建议', {
+      hasSuggestion: !!lastDoubleSuggestion,
+      suggestedDouble: lastDoubleSuggestion?.suggestedDouble,
+    })
+    if (lastDoubleSuggestion) {
+      logAi('执行加倍:', lastDoubleSuggestion.suggestedDouble ? '加倍' : '不加倍')
+      handleDoubleClick(lastDoubleSuggestion.suggestedDouble)
+    }
+  }, [lastDoubleSuggestion, handleDoubleClick, logAi])
+
+  // 应用 AI 出牌建议
+  const handleApplyAiPlay = useCallback(() => {
+    logAi('应用 AI 出牌建议', {
+      hasSuggestion: !!lastPlaySuggestion,
+      isPass: lastPlaySuggestion?.isPass,
+      suggestedCards: lastPlaySuggestion?.suggestedCards,
+    })
+    if (lastPlaySuggestion) {
+      if (lastPlaySuggestion.isPass) {
+        logAi('执行: 不出')
+        handlePass()
+      } else if (lastPlaySuggestion.suggestedCards.length > 0) {
+        logAi('执行: 选择卡牌', lastPlaySuggestion.suggestedCards)
+        setSelection(lastPlaySuggestion.suggestedCards)
+      }
+    }
+  }, [lastPlaySuggestion, handlePass, setSelection, logAi])
+
+  // ========== 结束 DouZero AI 建议功能 ==========
 
   // 检查是否已经加倍
   const hasDoubled = doublings.some(
@@ -822,28 +1042,8 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
 
   // ========== 结束聊天系统处理函数 ==========
 
-  // 计算游戏结束原因
-  const calculateGameEndReason = useCallback((): GameEndReason => {
-    if (!game) return 'none'
-
-    // 流局：全部不叫（winner 为 'none'）
-    if (game.winner === 'none') return 'flow'
-
-    // 春天/反春天
-    if (game.isSpring) return 'spring'
-    if (game.isAntiSpring) return 'anti_spring'
-
-    // 正常结束
-    return 'normal'
-  }, [game])
-
-  // 游戏结束时播放胜负音效和触发过渡动画
+  // 游戏结束时播放胜负音效
   useEffect(() => {
-    // 检测游戏状态从未结束变为结束
-    const wasNotFinished = prevGameStatusRef.current && prevGameStatusRef.current !== 'finished'
-    const justFinished = wasNotFinished && isFinished
-    prevGameStatusRef.current = gameStatus
-
     if (isFinished && gameResults.length > 0 && game && conn?.identity) {
       const myResult = gameResults.find(
         (r) => r.playerIdentity.toHexString() === conn.identity!.toHexString()
@@ -854,23 +1054,21 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
           (game.winner === 'landlord' && myResult.isLandlord) ||
           (game.winner === 'farmer' && !myResult.isLandlord)
 
-        // 只在刚结束时播放音效和触发过渡
-        if (justFinished) {
-          if (isWinner) {
-            audio?.playWin()
-          } else {
-            audio?.playLose()
-          }
-          // 停止背景音乐
-          audio?.stopMusic()
+        // 保存手牌快照，用于显示剩余手牌
+        finishedHandsRef.current = [...allHands]
+        isGameFinishedRef.current = true
 
-          // 触发游戏结束过渡动画
-          const reason = calculateGameEndReason()
-          setGameEndReason(reason)
-          setShowGameEndTransition(true)
-          setShowGameResultModal(false)
+        if (isWinner) {
+          audio?.playWin()
+        } else {
+          audio?.playLose()
+        }
+        // 停止背景音乐
+        audio?.stopMusic()
 
-          // 记录成就数据
+        // 记录成就数据（只记录一次）
+        if (!hasRecordedAchievement.current) {
+          hasRecordedAchievement.current = true
           const bombCount = plays.filter(p => p.combinationType === 'Bomb').length
           const rocketCount = plays.filter(p => p.combinationType === 'Rocket').length
           const gameDuration = game?.createdAt
@@ -884,41 +1082,12 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
             remainingCards: myHand?.cards.length || 0,
             gameDuration
           })
-
-          // 延迟检查新成就，等待 state 更新
-          setTimeout(() => {
-            // 检查连胜特效
-            const streakLevel = getStreakLevel(achievements.streak.current + (isWinner ? 1 : 0))
-            if (streakLevel >= 3) {
-              setShowStreakEffect(true)
-            }
-          }, 100)
         }
+
       }
     }
-  }, [isFinished, gameResults, game, conn?.identity, audio, calculateGameEndReason, gameStatus, plays, myHand, recordGameResult, achievements.unlockedBadges, achievements.streak.current, getStreakLevel])
+  }, [isFinished, gameResults, game, conn?.identity, audio, plays, myHand, recordGameResult, allHands])
 
-  // 游戏结束过渡完成回调
-  const handleGameEndTransitionComplete = useCallback(() => {
-    setShowGameEndTransition(false)
-    setShowGameResultModal(true)
-  }, [])
-
-  // 检测新解锁的成就
-  useEffect(() => {
-    if (!isFinished) return
-
-    const currentUnlocked = achievements.unlockedBadges
-    const newUnlocks = currentUnlocked.filter(id => !prevUnlockedRef.current.includes(id))
-
-    if (newUnlocks.length > 0) {
-      const newBadgeObjects = badges.filter(b => newUnlocks.includes(b.id))
-      setNewAchievements(newBadgeObjects)
-      setCurrentAchievementIndex(0)
-    }
-
-    prevUnlockedRef.current = currentUnlocked
-  }, [achievements.unlockedBadges, isFinished, badges])
 
   // 监听 currentPlay 变化播放出牌音效和视觉特效
   useEffect(() => {
@@ -1041,12 +1210,21 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
             )}
 
             {(isDoubling || isPlaying || isFinished) && (
-              <PlayHistory 
-                plays={plays} 
+              <PlayHistory
+                plays={plays}
                 players={players}
                 actionEvents={actionEvents}
                 landlordSeat={game?.landlordSeat}
               />
+            )}
+
+            {isFinished && (
+              <button
+                onClick={handleRestart}
+                className={`${isCompactLayout ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm'} bg-blue-600/80 hover:bg-blue-500 text-white rounded-md transition-colors font-medium`}
+              >
+                再来一局
+              </button>
             )}
           </div>
 
@@ -1083,6 +1261,8 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
                   turnStartTime={game?.turnStartTime}
                   onLongPress={handleLeftPlayerLongPress}
                   chatMessage={getPlayerChatMessage(leftPlayer.playerIdentity.toHexString())}
+                  isFinished={isFinished}
+                  revealedCards={getOpponentCards(leftPlayer.playerIdentity.toHexString())}
                 />
               </div>
             )}
@@ -1099,6 +1279,8 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
                   turnStartTime={game?.turnStartTime}
                   onLongPress={handleRightPlayerLongPress}
                   chatMessage={getPlayerChatMessage(rightPlayer.playerIdentity.toHexString())}
+                  isFinished={isFinished}
+                  revealedCards={getOpponentCards(rightPlayer.playerIdentity.toHexString())}
                 />
               </div>
             )}
@@ -1111,8 +1293,8 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
 
         {/* 手牌区域 - 固定在底部，确保始终可见 */}
         <div className={`flex-shrink-0 ${isCompactLayout ? 'py-1 px-2' : 'py-2 px-4'}`}>
-          {/* 显示手牌（叫分、加倍、出牌阶段都显示）*/}
-          {(isBidding || isDoubling || isPlaying) && myHand && (
+          {/* 显示手牌（叫分、加倍、出牌、结束阶段都显示）*/}
+          {(isBidding || isDoubling || isPlaying || isFinished) && displayMyHand && (
             <div className="flex flex-col items-center gap-0 relative">
               {/* 当前玩家聊天气泡 */}
               {conn?.identity && getPlayerChatMessage(conn.identity.toHexString()) && (
@@ -1127,7 +1309,7 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
                 </div>
               )}
               <PlayerHand
-                cards={myHand.cards}
+                cards={displayMyHand.cards}
                 selectedCards={selectedCards}
                 onToggleCard={toggleCard}
                 isSelected={isSelected}
@@ -1170,6 +1352,23 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
                         {value === 0 ? '不叫' : `${value}分`}
                       </button>
                     ))}
+                  {/* AI 叫分建议 */}
+                  {isDouzeroAvailable && myHand && (
+                    <AISuggestionBadge
+                      type="bid"
+                      suggestion={
+                        lastBidSuggestion
+                          ? lastBidSuggestion.suggestedBid === 0
+                            ? '不叫'
+                            : `${lastBidSuggestion.suggestedBid}分`
+                          : 'AI建议'
+                      }
+                      winRate={lastBidSuggestion?.win_rate}
+                      isLoading={isDouzeroLoading && !lastBidSuggestion}
+                      onClick={handleApplyAiBid}
+                      isCompact={isCompactLayout}
+                    />
+                  )}
                 </>
               )}
 
@@ -1197,6 +1396,23 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
                   >
                     不加倍
                   </button>
+                  {/* AI 加倍建议 */}
+                  {isDouzeroAvailable && myHand && (
+                    <AISuggestionBadge
+                      type="double"
+                      suggestion={
+                        lastDoubleSuggestion
+                          ? lastDoubleSuggestion.suggestedDouble
+                            ? '加倍'
+                            : '不加倍'
+                          : 'AI建议'
+                      }
+                      winRate={lastDoubleSuggestion?.win_rate}
+                      isLoading={isDouzeroLoading && !lastDoubleSuggestion}
+                      onClick={handleApplyAiDouble}
+                      isCompact={isCompactLayout}
+                    />
+                  )}
                 </>
               )}
 
@@ -1226,6 +1442,24 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
                     >
                       {isSelectedHint ? '取消' : '提示'}
                     </button>
+                  )}
+
+                  {/* AI 出牌建议 */}
+                  {isDouzeroAvailable && isMyTurn() && !isTrusted && (
+                    <AISuggestionBadge
+                      type="play"
+                      suggestion={
+                        lastPlaySuggestion
+                          ? lastPlaySuggestion.isPass
+                            ? '不出'
+                            : 'AI推荐'
+                          : 'AI建议'
+                      }
+                      winRate={lastPlaySuggestion?.winRate}
+                      isLoading={isDouzeroLoading && !lastPlaySuggestion}
+                      onClick={handleApplyAiPlay}
+                      isCompact={isCompactLayout}
+                    />
                   )}
 
                   <button
@@ -1261,48 +1495,6 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
           turnStartTime={game?.turnStartTime}
           actionType={currentActionType ?? undefined}
         />
-
-        {/* 游戏结束过渡动画 */}
-        {showGameEndTransition && game && conn?.identity && (
-          <GameEndTransition
-            isVisible={showGameEndTransition}
-            reason={gameEndReason}
-            winner={game.winner as 'landlord' | 'farmer' | 'none' | null}
-            isWinner={
-              gameResults.some(
-                (r) =>
-                  r.playerIdentity.toHexString() === conn.identity!.toHexString() &&
-                  ((game.winner === 'landlord' && r.isLandlord) ||
-                   (game.winner === 'farmer' && !r.isLandlord))
-              )
-            }
-            isLandlord={gameResults.find(
-              (r) => r.playerIdentity.toHexString() === conn.identity!.toHexString()
-            )?.isLandlord ?? false}
-            winnerName={
-              game.winner === 'landlord'
-                ? players.find((p) => p.seatIndex === game.landlordSeat)?.playerName
-                : game.winner === 'farmer'
-                ? '农民阵营'
-                : undefined
-            }
-            onComplete={handleGameEndTransitionComplete}
-          />
-        )}
-
-        {/* 游戏结果弹窗 - 过渡动画完成后显示 */}
-        {showGameResultModal && isFinished && game && (
-          <GameResultModal
-            winner={game.winner}
-            gameResults={gameResults}
-            players={players}
-            isSpring={game.isSpring}
-            isAntiSpring={game.isAntiSpring}
-            myIdentityHex={conn?.identity?.toHexString() ?? ''}
-            onRestart={handleRestart}
-            onLeave={handleLeaveRoom}
-          />
-        )}
 
         {/* 结束游戏确认对话框 */}
         <ConfirmDialog
@@ -1353,8 +1545,8 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
         <ActionConfirmDialog
           isOpen={doubleConfirm !== null}
           title="确认加倍"
-          message={doubleConfirm?.double 
-            ? '确定要加倍吗？获胜将获得双倍积分，失败也会扣除双倍积分。' 
+          message={doubleConfirm?.double
+            ? '确定要加倍吗？获胜将获得双倍积分，失败也会扣除双倍积分。'
             : '确定不加倍吗？保持当前倍数不变。'}
           confirmText={doubleConfirm?.double ? '加倍' : '不加倍'}
           cancelText="再想想"
@@ -1363,31 +1555,15 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
           onCancel={() => setDoubleConfirm(null)}
         />
 
-        {/* 连胜特效 */}
-        {showStreakEffect && (
-          <StreakEffect
-            streak={achievements.streak.current}
-            onComplete={() => {
-              setShowStreakEffect(false)
-            }}
-          />
-        )}
 
-        {/* 成就解锁通知 */}
-        {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length && (
-          <AchievementNotification
-            badge={newAchievements[currentAchievementIndex]}
-            onClose={() => setCurrentAchievementIndex(prev => prev + 1)}
-          />
-        )}
+
+
 
         {/* 超时自动托管提示 */}
         <AutoTrustNotification
           isVisible={showAutoTrust}
           onComplete={() => setShowAutoTrust(false)}
         />
-
-
       </div>
       </GestureHandler>
     </div>
@@ -1540,4 +1716,74 @@ function GameStatusBar({ game, gameStatus, isCompactLayout, isMyTurn, isLandlord
       )}
     </div>
   )
+}
+
+/**
+ * 构建全局累计已出的牌（按位置分类）
+ * DouZero API 期望的 played_cards 是全局累计，越完整越好（影响牌池分配）
+ */
+function buildPlayedCardsForSuggestion(
+  plays: Play[],
+  players: RoomPlayer[],
+  landlordSeat: number
+): { landlord: number[]; landlord_up: number[]; landlord_down: number[] } {
+  const result = {
+    landlord: [] as number[],
+    landlord_up: [] as number[],
+    landlord_down: [] as number[],
+  }
+
+  // 构建玩家 identity -> 位置的映射
+  const playerPositions: Map<string, 'landlord' | 'landlord_up' | 'landlord_down'> = new Map()
+  for (const player of players) {
+    const pos = getPlayerPosition(player.seatIndex, landlordSeat)
+    if (pos) {
+      playerPositions.set(player.playerIdentity.toHexString(), pos)
+    }
+  }
+
+  // 累计所有已出的牌（全局累计）
+  for (const play of plays) {
+    const pos = playerPositions.get(play.playerIdentity.toHexString())
+    if (pos) {
+      result[pos].push(...Array.from(play.cards))
+    }
+  }
+
+  return result
+}
+
+/**
+ * 构建各位置剩余牌数
+ * 用于 DouZero API 的 num_cards_left 参数
+ */
+function buildNumCardsLeftForSuggestion(
+  allHands: PlayerHandType[],
+  players: RoomPlayer[],
+  landlordSeat: number
+): { landlord: number; landlord_up: number; landlord_down: number } {
+  const result = {
+    landlord: 20,
+    landlord_up: 17,
+    landlord_down: 17,
+  }
+
+  // 构建玩家 identity -> 位置的映射
+  const playerPositions: Map<string, 'landlord' | 'landlord_up' | 'landlord_down'> = new Map()
+  for (const player of players) {
+    const pos = getPlayerPosition(player.seatIndex, landlordSeat)
+    if (pos) {
+      playerPositions.set(player.playerIdentity.toHexString(), pos)
+    }
+  }
+
+  // 根据手牌计算各位置剩余牌数
+  for (const hand of allHands) {
+    const pos = playerPositions.get(hand.playerIdentity.toHexString())
+    if (pos) {
+      result[pos] = hand.cards.length
+    }
+  }
+
+  return result
 }

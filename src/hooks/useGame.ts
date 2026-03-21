@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { DbConnection } from '../lib/spacetime'
-import type { Room, Game, PlayerHand, RoomPlayer, CurrentPlay, LandlordCards, Bid, SystemNotification } from '../module_bindings/types'
+import type { Room, Game, PlayerHand, RoomPlayer, CurrentPlay, LandlordCards, Bid, Play, SystemNotification } from '../module_bindings/types'
 import type { EventContext } from '../module_bindings'
 
 interface GameState {
@@ -13,6 +13,7 @@ interface GameState {
   currentPlay: CurrentPlay | null
   landlordCards: LandlordCards | null
   bids: Bid[]
+  plays: Play[]
   gameStatus: string
   notifications: SystemNotification[]  // 系统通知
   latestNotification: SystemNotification | null  // 最新通知
@@ -27,12 +28,14 @@ export function useGame(getConnection: () => DbConnection | null): GameState {
   const [currentPlay, setCurrentPlay] = useState<CurrentPlay | null>(null)
   const [landlordCards, setLandlordCards] = useState<LandlordCards | null>(null)
   const [bids, setBids] = useState<Bid[]>([])
+  const [plays, setPlays] = useState<Play[]>([])
   const [notifications, setNotifications] = useState<SystemNotification[]>([])
   const [latestNotification, setLatestNotification] = useState<SystemNotification | null>(null)
 
   const processedRoomIds = useRef<Set<string>>(new Set())
   const processedPlayerIds = useRef<Set<string>>(new Set())
   const processedBidIds = useRef<Set<string>>(new Set())
+  const processedPlayIds = useRef<Set<string>>(new Set())
   const processedNotificationIds = useRef<Set<string>>(new Set())
   const notificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -162,6 +165,20 @@ export function useGame(getConnection: () => DbConnection | null): GameState {
       setBids((prev) => prev.filter((b) => b.id.toString() !== bidId))
     })
 
+    // 出牌记录事件监听
+    db.play.onInsert((_ctx: EventContext, play: Play) => {
+      const playId = play.id.toString()
+      if (processedPlayIds.current.has(playId)) return
+      processedPlayIds.current.add(playId)
+      setPlays((prev) => [...prev, play])
+    })
+
+    db.play.onDelete((_ctx: EventContext, play: Play) => {
+      const playId = play.id.toString()
+      processedPlayIds.current.delete(playId)
+      setPlays((prev) => prev.filter((p) => p.id.toString() !== playId))
+    })
+
     // 系统通知事件监听
     db.system_notification.onInsert((_ctx: EventContext, notification: SystemNotification) => {
       // 只处理发给当前用户的通知
@@ -203,6 +220,7 @@ export function useGame(getConnection: () => DbConnection | null): GameState {
         const initialCurrentPlay = Array.from(db.current_play.iter()) as unknown as CurrentPlay[]
         const initialLandlordCards = Array.from(db.landlord_cards.iter()) as unknown as LandlordCards[]
         const initialBids = Array.from(db.bid.iter()) as unknown as Bid[]
+        const initialPlays = Array.from(db.play.iter()) as unknown as Play[]
         const initialNotifications = Array.from(db.system_notification.iter()) as unknown as SystemNotification[]
 
         initialRooms.forEach((r) => processedRoomIds.current.add(r.id.toString()))
@@ -210,11 +228,13 @@ export function useGame(getConnection: () => DbConnection | null): GameState {
           processedPlayerIds.current.add(`${p.roomId}-${p.playerIdentity.toHexString()}`)
         )
         initialBids.forEach((b) => processedBidIds.current.add(b.id.toString()))
+        initialPlays.forEach((p) => processedPlayIds.current.add(p.id.toString()))
 
         setRooms(initialRooms)
         setPlayers(initialPlayers)
         setGame(initialGame[0] || null)
         setBids(initialBids)
+        setPlays(initialPlays)
 
         if (conn.identity) {
           const myHand = initialHands.find(
@@ -241,6 +261,7 @@ export function useGame(getConnection: () => DbConnection | null): GameState {
         'SELECT * FROM current_play',
         'SELECT * FROM landlord_cards',
         'SELECT * FROM bid',
+        'SELECT * FROM play',
         'SELECT * FROM system_notification',
       ])
 
@@ -287,6 +308,7 @@ export function useGame(getConnection: () => DbConnection | null): GameState {
     currentPlay,
     landlordCards,
     bids,
+    plays,
     gameStatus,
     notifications,
     latestNotification,

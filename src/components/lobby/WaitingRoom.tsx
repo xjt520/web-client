@@ -1,10 +1,9 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import type { DbConnection } from '../../lib/spacetime'
-import type { Room, RoomPlayer, GameResult, Game } from '../../module_bindings/types'
+import type { Room, RoomPlayer } from '../../module_bindings/types'
 import type { EventContext } from '../../module_bindings'
 import { useScreenOrientation } from '../../hooks/useScreenOrientation'
 import { getTheme, type ThemeId } from '../../config/themes'
-import { GameResultModal } from '../game/GameResultModal'
 
 interface WaitingRoomProps {
   room: Room
@@ -17,21 +16,9 @@ export function WaitingRoom({ room, getConnection, tableTheme = 'classic' }: Wai
   const isCompactLayout = isMobileLandscape || isCompactScreen
   const theme = getTheme(tableTheme)
   const [players, setPlayers] = useState<RoomPlayer[]>([])
-  const [gameResults, setGameResults] = useState<GameResult[]>([])
-  const [game, setGame] = useState<Game | null>(null)
   const processedPlayerIds = useRef<Set<string>>(new Set())
-  const processedGameResultIds = useRef<Set<string>>(new Set())
 
   const conn = getConnection()
-
-  // 当房间状态变化时清除结算数据
-  useEffect(() => {
-    if (room.status !== 'finished') {
-      setGameResults([])
-      processedGameResultIds.current.clear()
-      setGame(null)
-    }
-  }, [room.status])
 
   useEffect(() => {
     if (!conn) return
@@ -69,45 +56,6 @@ export function WaitingRoom({ room, getConnection, tableTheme = 'classic' }: Wai
     }
     db.room_player.onUpdate(handlePlayerUpdate)
 
-    // GameResult 表监听
-    const handleGameResultInsert = (_ctx: EventContext, result: GameResult) => {
-      if (result.roomId.toString() !== roomId.toString()) return
-      const resultId = result.id.toString()
-      if (processedGameResultIds.current.has(resultId)) return
-      processedGameResultIds.current.add(resultId)
-      setGameResults((prev) => [...prev, result])
-    }
-    db.game_result.onInsert(handleGameResultInsert)
-
-    const handleGameResultDelete = (_ctx: EventContext, result: GameResult) => {
-      const resultId = result.id.toString()
-      processedGameResultIds.current.delete(resultId)
-      setGameResults((prev) => prev.filter((r) => r.id.toString() !== resultId))
-    }
-    db.game_result.onDelete(handleGameResultDelete)
-
-    // Game 表监听
-    const handleGameInsert = (_ctx: EventContext, g: Game) => {
-      if (g.roomId.toString() === roomId.toString()) {
-        setGame(g)
-      }
-    }
-    db.game.onInsert(handleGameInsert)
-
-    const handleGameDelete = (_ctx: EventContext, g: Game) => {
-      if (g.roomId.toString() === roomId.toString()) {
-        setGame(null)
-      }
-    }
-    db.game.onDelete(handleGameDelete)
-
-    const handleGameUpdate = (_ctx: EventContext, _oldGame: Game, newGame: Game) => {
-      if (newGame.roomId.toString() === roomId.toString()) {
-        setGame(newGame)
-      }
-    }
-    db.game.onUpdate(handleGameUpdate)
-
     let subscribed = false
     conn.subscriptionBuilder()
       .onApplied(() => {
@@ -123,21 +71,6 @@ export function WaitingRoom({ room, getConnection, tableTheme = 'classic' }: Wai
           processedPlayerIds.current.add(playerId)
         })
         setPlayers(roomPlayers)
-
-        // 初始化 GameResult
-        const initialGameResults = Array.from(db.game_result.iter()) as unknown as GameResult[]
-        const roomGameResults = initialGameResults.filter(
-          (r) => r.roomId.toString() === roomId.toString()
-        )
-        roomGameResults.forEach((r) => processedGameResultIds.current.add(r.id.toString()))
-        setGameResults(roomGameResults)
-
-        // 初始化 Game
-        const initialGames = Array.from(db.game.iter()) as unknown as Game[]
-        const roomGame = initialGames.find((g) => g.roomId.toString() === roomId.toString())
-        if (roomGame) {
-          setGame(roomGame)
-        }
       })
       .subscribeToAllTables()
 
@@ -145,11 +78,6 @@ export function WaitingRoom({ room, getConnection, tableTheme = 'classic' }: Wai
       db.room_player.removeOnInsert(handlePlayerInsert)
       db.room_player.removeOnDelete(handlePlayerDelete)
       db.room_player.removeOnUpdate(handlePlayerUpdate)
-      db.game_result.removeOnInsert(handleGameResultInsert)
-      db.game_result.removeOnDelete(handleGameResultDelete)
-      db.game.removeOnInsert(handleGameInsert)
-      db.game.removeOnDelete(handleGameDelete)
-      db.game.removeOnUpdate(handleGameUpdate)
     }
   }, [conn, room.id])
 
@@ -174,16 +102,6 @@ export function WaitingRoom({ room, getConnection, tableTheme = 'classic' }: Wai
 
   const canStart = isOwner && normalPlayers.length === 3 && allReady
 
-  // 按角色排序：地主在前，农民在后
-  const sortedGameResults = useMemo(() => {
-    if (!gameResults || !Array.isArray(gameResults)) return []
-    return [...gameResults].sort((a, b) => {
-      if (a.isLandlord && !b.isLandlord) return -1
-      if (!a.isLandlord && b.isLandlord) return 1
-      return 0
-    })
-  }, [gameResults])
-
   const handleReady = useCallback(() => {
     if (!conn || !currentPlayer) return
     conn.reducers.setReady({ roomId: room.id, ready: !currentPlayer.ready })
@@ -205,22 +123,7 @@ export function WaitingRoom({ room, getConnection, tableTheme = 'classic' }: Wai
   }, [conn, room.id])
 
   return (
-    <>
-      {/* 游戏结算弹窗 */}
-      {isAfterGame && sortedGameResults.length > 0 && game && (
-        <GameResultModal
-          winner={game.winner}
-          gameResults={sortedGameResults}
-          players={players}
-          isSpring={game.isSpring}
-          isAntiSpring={game.isAntiSpring}
-          myIdentityHex={conn?.identity?.toHexString() ?? ''}
-          onRestart={handleRestartGame}
-          onLeave={handleLeaveRoom}
-        />
-      )}
-
-      <div className={`min-h-screen bg-gradient-to-br ${theme.background.gradient} flex items-center justify-center p-3 sm:p-4`}>
+    <div className={`min-h-screen bg-gradient-to-br ${theme.background.gradient} flex items-center justify-center p-3 sm:p-4`}>
         <div className="bg-gray-800 rounded-xl p-4 sm:p-6 md:p-8 w-full max-w-md">
           <div className="text-center mb-4 sm:mb-6">
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-1 sm:mb-2">{room.name}</h2>
@@ -340,6 +243,5 @@ export function WaitingRoom({ room, getConnection, tableTheme = 'classic' }: Wai
           </div>
         </div>
       </div>
-    </>
   )
 }

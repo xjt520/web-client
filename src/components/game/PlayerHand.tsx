@@ -54,44 +54,44 @@ export function PlayerHand({
   const fanConfig = useMemo(() => {
     if (isMobileLandscapeSm) {
       return {
-        radius: 200,
-        maxHeight: 75,
-        containerWidth: Math.min(sortedCards.length * 30 + 80, 450),
+        radius: 180,
+        maxHeight: 90,
+        containerWidth: Math.min(sortedCards.length * 32 + 60, 480),
         marginTop: -20,
         textClass: 'text-xs',
       }
     }
     if (isMobileLandscape) {
       return {
-        radius: 220,
-        maxHeight: 85,
-        containerWidth: Math.min(sortedCards.length * 35 + 100, 550),
+        radius: 180,
+        maxHeight: 90,
+        containerWidth: Math.min(sortedCards.length * 32 + 60, 480),
         marginTop: -20,
         textClass: 'text-xs',
       }
     }
     if (isCompactScreen) {
       return {
-        radius: 280,
-        maxHeight: 110,
-        containerWidth: Math.min(sortedCards.length * 40 + 120, 650),
+        radius: 180,
+        maxHeight: 90,
+        containerWidth: Math.min(sortedCards.length * 32 + 60, 480),
         marginTop: -25,
         textClass: 'text-sm',
       }
     }
     if (isSmallScreen) {
       return {
-        radius: 320,
-        maxHeight: 130,
-        containerWidth: Math.min(sortedCards.length * 45 + 140, 750),
+        radius: 240,
+        maxHeight: 120,
+        containerWidth: Math.min(sortedCards.length * 40 + 75, 650),
         marginTop: -30,
         textClass: 'text-sm',
       }
     }
     return {
-      radius: 480,
-      maxHeight: 200,
-      containerWidth: Math.min(sortedCards.length * 60 + 150, 950),
+      radius: 240,
+      maxHeight: 120,
+      containerWidth: Math.min(sortedCards.length * 40 + 75, 650),
       marginTop: -40,
       textClass: 'text-sm',
     }
@@ -100,7 +100,7 @@ export function PlayerHand({
   // 计算扇形参数
   const cardCount = sortedCards.length
   const fanAngle = useMemo(() => {
-    return Math.min(cardCount * 3.5, 120)
+    return Math.min(cardCount * 4, 120)
   }, [cardCount])
 
   const startAngle = -fanAngle / 2
@@ -113,7 +113,7 @@ export function PlayerHand({
       const radians = (angle * Math.PI) / 180
 
       const x = Math.sin(radians) * fanConfig.radius
-      const y = (1 - Math.cos(radians)) * fanConfig.radius * 0.15
+      const y = (1 - Math.cos(radians)) * fanConfig.radius * 0.12
 
       return {
         transform: `translate(${x}px, ${y}px) rotate(${angle}deg)`,
