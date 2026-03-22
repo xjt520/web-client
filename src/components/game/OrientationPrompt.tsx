@@ -2,6 +2,22 @@ import { useScreenOrientation } from '../../hooks/useScreenOrientation'
 import { FullscreenToggle } from './FullscreenToggle'
 
 /**
+ * 检测是否在微信内置浏览器中
+ */
+function isWechat(): boolean {
+  const ua = navigator.userAgent.toLowerCase()
+  return ua.includes('micromessenger')
+}
+
+/**
+ * 检测是否在 QQ 内置浏览器中
+ */
+function isQQ(): boolean {
+  const ua = navigator.userAgent.toLowerCase()
+  return ua.includes(' qq/') || ua.includes('mqqbrowser')
+}
+
+/**
  * 横屏提示组件
  * 当触摸设备处于竖屏时，提示用户旋转设备
  */
@@ -12,6 +28,10 @@ export function OrientationPrompt() {
   if (!isTouch || !isMobilePortrait) {
     return null
   }
+
+  const isWechatBrowser = isWechat()
+  const isQQBrowser = isQQ()
+  const isInApp = isWechatBrowser || isQQBrowser
 
   return (
     <div className="fixed inset-0 bg-black/95 z-[100] flex flex-col items-center justify-center text-white">
@@ -31,6 +51,34 @@ export function OrientationPrompt() {
       {canFullscreen ? (
         <div className="z-[101]">
           <FullscreenToggle />
+        </div>
+      ) : isInApp ? (
+        <div className="text-center px-6">
+          <div className="bg-orange-500/20 border border-orange-500/40 rounded-lg p-4 max-w-xs mb-4">
+            <p className="text-orange-400 text-sm font-medium mb-2">
+              {isWechatBrowser ? '微信' : 'QQ'}不支持横屏模式
+            </p>
+            <p className="text-gray-300 text-xs">
+              请点击右上角 <span className="text-white font-medium">•••</span> → 选择
+              <span className="text-white font-medium">「在浏览器中打开」</span>
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2 text-gray-400 text-xs">
+              <span className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-white text-sm">1</span>
+              <span>点击右上角菜单</span>
+            </div>
+            <div className="w-px h-3 bg-gray-600" />
+            <div className="flex items-center gap-2 text-gray-400 text-xs">
+              <span className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-white text-sm">2</span>
+              <span>选择「在浏览器中打开」</span>
+            </div>
+            <div className="w-px h-3 bg-gray-600" />
+            <div className="flex items-center gap-2 text-gray-400 text-xs">
+              <span className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-white text-sm">3</span>
+              <span>点击横屏按钮即可</span>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="text-center px-6">
