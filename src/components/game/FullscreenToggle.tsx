@@ -16,7 +16,7 @@ type OrientationLockType = 'any' | 'natural' | 'landscape' | 'portrait' | 'portr
  * 使用 Fullscreen API 和 Screen Orientation API
  */
 export function FullscreenToggle() {
-  const { isTouch, isLandscape } = useScreenOrientation()
+  const { isTouch, isLandscape, canFullscreen } = useScreenOrientation()
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   // 监听全屏状态变化
@@ -78,8 +78,8 @@ export function FullscreenToggle() {
     }
   }, [])
 
-  // 只在触摸设备上显示
-  if (!isTouch) return null
+  // 只在支持全屏的触摸设备上显示
+  if (!isTouch || !canFullscreen) return null
 
   return (
     <button

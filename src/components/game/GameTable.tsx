@@ -433,7 +433,8 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
           (p) => p.roomId.toString() === roomId.toString()
         )
         roomPlays.forEach((p) => processedPlayIds.current.add(p.id.toString()))
-        setPlays(roomPlays)
+        const sortedPlays = [...roomPlays].sort((a, b) => Number(a.id) - Number(b.id));
+        setPlays(sortedPlays)
 
         // 初始化 PlayerActionEvent（跳过已有的事件，避免重复播放音效）
         const initialActionEvents = Array.from(db.player_action_event.iter()) as unknown as PlayerActionEvent[]
@@ -897,15 +898,9 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
       // 构建已出的牌（根据位置）- 使用 plays 表而不是手牌
       const playedCardsData = buildPlayedCardsForSuggestion(plays, players, game.landlordSeat)
 
-      // 构建需要跟的牌（最近5手）
-      // - 如果 currentPlay 为空，说明是新一轮首家，可以自由出牌
-      // - 如果 currentPlay 是自己出的，说明新一轮开始，可以自由出牌
-      // - 否则需要跟牌，取最近5手牌
-      const myIdentity = conn?.identity?.toHexString()
-      const isFirstInRound = !currentPlay || currentPlay.playerIdentity.toHexString() === myIdentity
-      const lastMoves = isFirstInRound
-        ? []
-        : plays.slice(-5).map(p => Array.from(p.cards))
+      // 构建从开局至今的所有出牌记录（包含 pass）
+      // DouZero API 期望 last_moves 是全局历史，越完整越好
+      const lastMoves = plays.map(p => Array.from(p.cards))
 
       // 计算各位置剩余牌数
       const numCardsLeft = buildNumCardsLeftForSuggestion(allHands, players, game.landlordSeat)

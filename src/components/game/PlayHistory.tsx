@@ -84,8 +84,8 @@ export function PlayHistory({ plays, players, actionEvents = [], landlordSeat }:
   const historyItems = useMemo(() => {
     const items: HistoryItem[] = []
 
-    // 添加出牌记录
-    plays.forEach(play => {
+    // 添加出牌记录（排除 Pass，Pass 由 PlayerActionEvent 处理）
+    plays.filter(play => play.combinationType !== 'Pass').forEach(play => {
       const playerInfo = playerMap.get(play.playerIdentity.toHexString())
       items.push({
         id: `play-${play.id}`,

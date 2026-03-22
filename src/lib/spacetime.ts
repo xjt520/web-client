@@ -5,7 +5,7 @@ import { DbConnection } from '../module_bindings'
  *
  * 本地开发 (默认):
  *   VITE_STDB_URI=ws://localhost:3000
- *   VITE_STDB_MODULE=doudizhu-game-v3
+ *   VITE_STDB_MODULE=doudizhu-game
  *
  * 云数据库:
  *   VITE_STDB_URI=wss://maincloud.spacetimedb.io
@@ -17,7 +17,7 @@ import { DbConnection } from '../module_bindings'
  *   3. 重启开发服务器
  */
 export const STDB_URI = import.meta.env.VITE_STDB_URI || 'ws://localhost:3000'
-export const STDB_MODULE = import.meta.env.VITE_STDB_MODULE || 'doudizhu-game-v3'
+export const STDB_MODULE = import.meta.env.VITE_STDB_MODULE || 'doudizhu-game'
 
 export const TOKEN_KEY = `${STDB_URI}/${STDB_MODULE}/auth_token`
 export const USERNAME_KEY = 'doudizhu_username'

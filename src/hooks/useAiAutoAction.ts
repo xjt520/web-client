@@ -301,9 +301,9 @@ export function useAiAutoAction({
         landlord_down: playedCards.landlord_down
       })
 
-      // 获取最近出的牌（最近 3~5 手，用于判断是否需要跟牌）
-      const lastMoves = buildLastMoves(plays, currentPlay, player.playerIdentity.toHexString())
-      logAi('最近出牌 (lastMoves):', lastMoves, '是新一轮首家:', lastMoves.length === 0)
+      // 获取从开局至今的所有出牌记录（包含 pass）
+      const lastMoves = buildLastMoves(plays)
+      logAi('全局出牌历史 (lastMoves):', lastMoves)
       logAi('currentPlay:', currentPlay ? {
         cards: Array.from(currentPlay.cards),
         playerIdentity: currentPlay.playerIdentity.toHexString().slice(0, 8)
@@ -626,31 +626,15 @@ function buildPlayedCards(
 }
 
 /**
- * 构建最近的出牌（用于判断是否需要跟牌）
- * 传最近 3~5 手即可，超 32 手无意义
+ * 构建从开局至今的所有出牌记录（包含 pass）
+ * DouZero API 期望 last_moves 是全局历史，越完整越好
  * 
- * 关键：如果当前玩家是新一轮首家（currentPlay 为空或自己出的），返回空数组
+ * 注意：pass 操作的 cards 是空数组
  */
-function buildLastMoves(
-  plays: Play[],
-  currentPlay: CurrentPlay | null,
-  currentPlayerIdentity: string
-): number[][] {
-  // 如果 currentPlay 为空，说明是新一轮首家，可以自由出牌
-  if (!currentPlay) {
-    return []
-  }
-  
-  // 如果 currentPlay 是自己出的，说明新一轮开始，可以自由出牌
-  if (currentPlay.playerIdentity.toHexString() === currentPlayerIdentity) {
-    return []
-  }
-  
-  // 需要跟牌，取最近 5 手牌
-  const recentPlays = plays.slice(-5)
-  
-  // 转换为卡牌数组
-  return recentPlays.map(play => Array.from(play.cards))
+function buildLastMoves(plays: Play[]): number[][] {
+  // 返回从开局至今的所有出牌记录（包含 pass）
+  // plays 表按时间顺序记录所有出牌，pass 的 cards 是空数组
+  return plays.map(play => Array.from(play.cards))
 }
 
 /**

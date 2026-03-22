@@ -9,6 +9,7 @@ interface ScreenOrientation {
   isSmallScreen: boolean      // 高度 <= 768px（小屏幕电脑）
   isCompactScreen: boolean    // 高度 <= 600px（紧凑屏幕）
   isTouch: boolean            // 触摸设备
+  canFullscreen: boolean      // 是否支持全屏 API（微信等 WebView 不支持）
   screenWidth: number
   screenHeight: number
 }
@@ -18,6 +19,11 @@ function getOrientationState(): ScreenOrientation {
   const height = window.innerHeight
   const isLandscape = width > height
   const isTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches
+  // 检测是否支持全屏 API（微信、QQ 等 WebView 不支持）
+  const canFullscreen = !!(
+    document.documentElement.requestFullscreen ||
+    (document.documentElement as any).webkitRequestFullscreen
+  )
 
   return {
     isLandscape,
@@ -28,6 +34,7 @@ function getOrientationState(): ScreenOrientation {
     isSmallScreen: height <= 768,
     isCompactScreen: height <= 600,
     isTouch,
+    canFullscreen,
     screenWidth: width,
     screenHeight: height,
   }
@@ -49,6 +56,7 @@ export function useScreenOrientation(): ScreenOrientation {
         isSmallScreen: false,
         isCompactScreen: false,
         isTouch: false,
+        canFullscreen: true,
         screenWidth: 1024,
         screenHeight: 768,
       }

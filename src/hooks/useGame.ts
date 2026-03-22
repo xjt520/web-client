@@ -234,7 +234,8 @@ export function useGame(getConnection: () => DbConnection | null): GameState {
         setPlayers(initialPlayers)
         setGame(initialGame[0] || null)
         setBids(initialBids)
-        setPlays(initialPlays)
+        const sortedPlays = [...initialPlays].sort((a, b) => Number(a.id) - Number(b.id));
+        setPlays(sortedPlays)
 
         if (conn.identity) {
           const myHand = initialHands.find(
