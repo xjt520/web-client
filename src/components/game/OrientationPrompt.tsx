@@ -48,15 +48,11 @@ export function OrientationPrompt() {
       <p className="text-xl mb-2 font-medium">请旋转设备至横屏</p>
       <p className="text-gray-400 text-sm mb-6">以获得最佳游戏体验</p>
 
-      {canFullscreen ? (
-        <div className="z-[101]">
-          <FullscreenToggle />
-        </div>
-      ) : isInApp ? (
+      {isInApp ? (
         <div className="text-center px-6">
           <div className="bg-orange-500/20 border border-orange-500/40 rounded-lg p-4 max-w-xs mb-4">
             <p className="text-orange-400 text-sm font-medium mb-2">
-              {isWechatBrowser ? '微信' : 'QQ'}不支持横屏模式
+              {isWechatBrowser ? '微信' : 'QQ'}内暂不支持自动横屏
             </p>
             <p className="text-gray-300 text-xs">
               请点击右上角 <span className="text-white font-medium">•••</span> → 选择
@@ -76,9 +72,13 @@ export function OrientationPrompt() {
             <div className="w-px h-3 bg-gray-600" />
             <div className="flex items-center gap-2 text-gray-400 text-xs">
               <span className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-white text-sm">3</span>
-              <span>点击横屏按钮即可</span>
+              <span>进入后点击横屏按钮即可</span>
             </div>
           </div>
+        </div>
+      ) : canFullscreen ? (
+        <div className="z-[101]">
+          <FullscreenToggle />
         </div>
       ) : (
         <div className="text-center px-6">

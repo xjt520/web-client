@@ -7,7 +7,6 @@ import { TrustControl } from './TrustControl'
 import { PlayHistory } from './PlayHistory'
 import { ToastContainer } from '../common/ToastContainer'
 import { ConfirmDialog } from '../common/ConfirmDialog'
-import { ActionConfirmDialog } from './ActionConfirmDialog'
 import { CombinationPreview } from './CombinationPreview'
 import { DealAnimation } from './DealAnimation'
 import { GestureHandler } from './GestureHandler'
@@ -20,7 +19,6 @@ import { EmojiWheel } from './EmojiWheel'
 import { QuickChat } from './QuickChat'
 import { CombinationEffects, useCardEffects } from './CombinationEffects'
 import './CombinationEffects.css'
-import { AutoTrustNotification } from './AutoTrustNotification'
 import './PhasedTimer.css'
 import { useCardSelection } from '../../hooks/useCardSelection'
 import { useCardHint } from '../../hooks/useCardHint'
@@ -81,10 +79,6 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
   const [actionEvents, setActionEvents] = useState<PlayerActionEvent[]>([])
   const [showEndGameConfirm, setShowEndGameConfirm] = useState(false)
 
-  // 叫分/加倍确认对话框状态
-  const [bidConfirm, setBidConfirm] = useState<{ value: number } | null>(null)
-  const [doubleConfirm, setDoubleConfirm] = useState<{ double: boolean } | null>(null)
-
   // 发牌动画状态
   const [showDealAnimation, setShowDealAnimation] = useState(false)
   const hasShownDealAnimation = useRef(false)
@@ -116,9 +110,6 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
   const {
     recordGameResult
   } = useAchievements()
-
-  // 超时自动托管提示
-  const [showAutoTrust, setShowAutoTrust] = useState(false)
 
   // 首次点击初始化音频
   const handleFirstClick = useCallback(() => {
@@ -625,55 +616,43 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
     }
   }, [conn, isMyTurn, room.id, audio])
 
-  // 叫分按钮点击 - 显示确认对话框
+  // 叫分按钮点击 - 直接执行
   const handleBidClick = useCallback((value: number) => {
-    setBidConfirm({ value })
-  }, [])
-
-  // 确认叫分
-  const handleBidConfirm = useCallback(() => {
-    if (!conn || !bidConfirm) return
+    if (!conn) return
 
     try {
-      conn.reducers.placeBid({ roomId: room.id, bidValue: bidConfirm.value })
+      conn.reducers.placeBid({ roomId: room.id, bidValue: value })
       // 播放叫分/不叫音效
-      if (bidConfirm.value > 0) {
-        audio?.playBidScore(bidConfirm.value)
+      if (value > 0) {
+        audio?.playBidScore(value)
       } else {
         audio?.playNoBid()
       }
-      setBidConfirm(null)
     } catch (err) {
       console.error('Bid error:', err)
       const errorMessage = err instanceof Error ? err.message : String(err)
       error(errorMessage)
     }
-  }, [conn, room.id, audio, bidConfirm, error])
+  }, [conn, room.id, audio, error])
 
-  // 加倍按钮点击 - 显示确认对话框
+  // 加倍按钮点击 - 直接执行
   const handleDoubleClick = useCallback((double: boolean) => {
-    setDoubleConfirm({ double })
-  }, [])
-
-  // 确认加倍
-  const handleDoubleConfirm = useCallback(() => {
-    if (!conn || !doubleConfirm) return
+    if (!conn) return
 
     try {
-      conn.reducers.doubleBet({ roomId: room.id, double: doubleConfirm.double })
+      conn.reducers.doubleBet({ roomId: room.id, double: double })
       // 播放加倍/不加倍音效
-      if (doubleConfirm.double) {
+      if (double) {
         audio?.playDouble()
       } else {
         audio?.playNoDouble()
       }
-      setDoubleConfirm(null)
     } catch (err) {
       console.error('Double error:', err)
       const errorMessage = err instanceof Error ? err.message : String(err)
       error(errorMessage)
     }
-  }, [conn, room.id, doubleConfirm, error])
+  }, [conn, room.id, audio, error])
 
   const handleSetTrusted = useCallback(
     (trusted: boolean) => {
@@ -1111,10 +1090,6 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
   } = useTurnTimer({
     turnStartTime: game?.turnStartTime ?? null,
     enabled: isMyPlayerTurn && !!game?.turnStartTime,
-    onTimeout: () => {
-      // 超时时显示自动托管提示
-      setShowAutoTrust(true)
-    }
   })
 
   // 心跳音效 - 基于间隔播放
@@ -1524,42 +1499,11 @@ export function GameTable({ room, getConnection, audio, onFirstInteraction, tabl
           />
         )}
 
-        {/* 叫分确认对话框 */}
-        <ActionConfirmDialog
-          isOpen={bidConfirm !== null}
-          title="确认叫分"
-          message={bidConfirm ? `确定要${bidConfirm.value === 0 ? '不叫' : `叫 ${bidConfirm.value} 分`}吗？此操作不可撤销。` : ''}
-          confirmText={bidConfirm ? (bidConfirm.value === 0 ? '不叫' : `${bidConfirm.value}分`) : ''}
-          cancelText="再想想"
-          variant={bidConfirm?.value === 0 ? 'primary' : 'warning'}
-          onConfirm={handleBidConfirm}
-          onCancel={() => setBidConfirm(null)}
-        />
-
-        {/* 加倍确认对话框 */}
-        <ActionConfirmDialog
-          isOpen={doubleConfirm !== null}
-          title="确认加倍"
-          message={doubleConfirm?.double
-            ? '确定要加倍吗？获胜将获得双倍积分，失败也会扣除双倍积分。'
-            : '确定不加倍吗？保持当前倍数不变。'}
-          confirmText={doubleConfirm?.double ? '加倍' : '不加倍'}
-          cancelText="再想想"
-          variant={doubleConfirm?.double ? 'danger' : 'primary'}
-          onConfirm={handleDoubleConfirm}
-          onCancel={() => setDoubleConfirm(null)}
-        />
 
 
 
 
-
-        {/* 超时自动托管提示 */}
-        <AutoTrustNotification
-          isVisible={showAutoTrust}
-          onComplete={() => setShowAutoTrust(false)}
-        />
-      </div>
+        </div>
       </GestureHandler>
     </div>
   )
